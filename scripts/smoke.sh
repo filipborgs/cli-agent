@@ -15,4 +15,5 @@ docker compose --project-name "$project_name" up --build --wait --wait-timeout 1
 
 curl --fail --silent "http://localhost:${port}/" | grep -q "Clinic"
 test "$(curl --fail --silent "http://localhost:${port}/api/health")" = '{"status":"ok"}'
+test "$(curl --silent --output /dev/null --write-out '%{http_code}' "http://localhost:${port}/api")" = "404"
 test "$(curl --silent --output /dev/null --write-out '%{http_code}' "http://localhost:${port}/api/missing")" = "404"
