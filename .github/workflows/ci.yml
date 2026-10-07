@@ -1,0 +1,60 @@
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+jobs:
+  web:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm --dir apps/web format:check
+      - run: pnpm --dir apps/web lint
+      - run: pnpm --dir apps/web typecheck
+      - run: pnpm --dir apps/web test
+      - run: pnpm --dir apps/web build
+
+  api:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v6
+        with:
+          enable-cache: true
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+      - run: uv sync --project apps/api --all-groups --frozen
+      - run: uv run --project apps/api ruff format --check apps/api
+      - run: uv run --project apps/api ruff check apps/api
+      - run: uv run --project apps/api mypy apps/api/src
+      - run: uv run --project apps/api pytest -W error -v
+
+  containers:
+    needs: [web, api]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: pnpm
+      - uses: astral-sh/setup-uv@v6
+        with:
+          enable-cache: true
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+      - run: pnpm install --frozen-lockfile
+      - run: uv sync --project apps/api --all-groups --frozen
+      - run: make build
+      - run: make smoke

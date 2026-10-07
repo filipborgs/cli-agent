@@ -7,4 +7,4 @@
 5. Atualize documentacao quando limites, comandos ou decisoes mudarem.
 6. Mantenha um objetivo testavel por commit.
 
-Pull requests para `main` devem exigir os checks `web`, `api` e `containers` quando o remote GitHub for configurado.
+Quando o remote GitHub existir, configure a protecao de `main` para exigir os checks `web`, `api` e `containers`. Essa configuracao e operacional e deve ser aplicada no GitHub; ela nao e representada apenas pelos arquivos do repositorio.
