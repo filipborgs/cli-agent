@@ -1,0 +1,35 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "cli-agent-api"
+version = "0.1.0"
+description = "API for clinic scheduling"
+requires-python = ">=3.13,<3.14"
+dependencies = [
+  "fastapi>=0.115,<1.0",
+  "uvicorn[standard]>=0.34,<1.0",
+]
+
+[dependency-groups]
+dev = [
+  "httpx>=0.28,<1.0",
+  "mypy>=1.14,<2.0",
+  "pytest>=8.3,<9.0",
+  "ruff>=0.9,<1.0",
+]
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/clinic_api"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+
+[tool.ruff]
+target-version = "py313"
+
+[tool.mypy]
+python_version = "3.13"
+strict = true
+files = ["src"]
