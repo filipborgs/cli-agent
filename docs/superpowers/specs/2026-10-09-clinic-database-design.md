@@ -4,6 +4,10 @@ Status: desenho aprovado em 2026-10-09, ainda sem implementação.
 
 Representação visual: [diagramas de entidades, relacionamentos e reposições](../../architecture/clinic-database-diagrams.md).
 
+Referência física planejada: [dicionário do banco](../../database/schema.md).
+Organização de código: [módulos de persistência e domínio](../../architecture/clinic-domain-modules.md).
+Leitura direcionada: [contexto para agentes](../../agents/database-context.md).
+
 Referência funcional: [documentação de negócio](../../business/README.md),
 [regras de negócio](../../business/business-rules.md) e
 [fluxos operacionais](../../business/workflows.md).
@@ -292,7 +296,8 @@ cadastrais adicionais precisam de desenho próprio quando essas entregas começa
 
 ## 9. O que fica para o plano de implementação
 
-- Nomes físicos, tipos, índices e estratégia de IDs.
+- Implementar e conferir nomes físicos, tipos, índices e estratégia de IDs do
+  [dicionário planejado](../../database/schema.md) contra modelos e migrações.
 - Versões e configuração de PostgreSQL, SQLAlchemy e Alembic.
 - DDL exato das constraints, RLS, migrações e teste de isolamento entre tenants.
 - Mecanismo de integridade de especialidades, vínculos e bloqueios.

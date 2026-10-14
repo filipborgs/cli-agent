@@ -22,6 +22,8 @@ reposições que ainda precisam acontecer.
   tradução dessas regras para o modelo de dados e decisões técnicas.
 - [Diagramas do banco](../architecture/clinic-database-diagrams.md): visão geral,
   entidades, relacionamentos e ciclo de reposição.
+- [Referência do banco](../database/README.md): dicionário físico e operação planejados.
+- [Índice para agentes](../agents/README.md): leitura direcionada e fontes canônicas.
 
 Esta pasta é a referência funcional do projeto. O desenho técnico detalha como
 preservar as regras no banco. Novas decisões devem atualizar os documentos

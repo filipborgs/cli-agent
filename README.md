@@ -8,10 +8,13 @@ SPA React, API FastAPI, containers, qualidade automatizada e CI. Banco, autentic
 
 ## Documentacao
 
+- [Indice para agentes de IA](docs/agents/README.md).
 - [Visao de negocio e escopo do MVP](docs/business/README.md).
 - [Regras de negocio](docs/business/business-rules.md).
 - [Fluxos operacionais e exemplos](docs/business/workflows.md).
 - [Desenho aprovado do banco de dados](docs/superpowers/specs/2026-10-09-clinic-database-design.md).
+- [Referencia do banco e dicionario planejado](docs/database/README.md).
+- [Mapa dos modulos de persistencia e negocio](docs/architecture/clinic-domain-modules.md).
 
 ## Pre-requisitos
 
@@ -41,6 +44,8 @@ Abra `http://localhost:8080`. O modo de desenvolvimento usa recarga. Para valida
 - `apps/web`: SPA React.
 - `apps/api`: API FastAPI.
 - `docs/business`: escopo, conceitos, regras e fluxos do negocio.
+- `docs/database`: dicionario, integridade e operacao do banco.
+- `docs/agents`: indice e contexto direcionado para agentes de IA.
 - `docs/architecture`: visao tecnica.
 - `docs/decisions`: ADRs.
 - `docs/development`: workflow.
