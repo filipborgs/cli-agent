@@ -39,13 +39,13 @@ def test_upgrade_downgrade_upgrade(
     assert (API_ROOT / "alembic.ini").is_file(), "Alembic configuration is missing"
     config = Config(str(API_ROOT / "alembic.ini"))
     command.upgrade(config, "head")
-    assert {"tenants", "users", "user_tenants"} <= set(
+    assert {"tenant", "user", "user_tenant"} <= set(
         inspect(admin_engine).get_table_names()
     )
     command.downgrade(config, "base")
     assert set(inspect(admin_engine).get_table_names()) <= {"alembic_version"}
     command.upgrade(config, "head")
-    assert {"tenants", "users", "user_tenants"} <= set(
+    assert {"tenant", "user", "user_tenant"} <= set(
         inspect(admin_engine).get_table_names()
     )
 
@@ -70,14 +70,17 @@ def test_identity_tables_require_tenant_context(
         rls = connection.execute(
             text(
                 "SELECT relname, relrowsecurity, relforcerowsecurity FROM pg_class "
-                "WHERE relname IN ('tenants', 'users', 'user_tenants')"
+                "WHERE relname IN ('tenant', 'user', 'user_tenant')"
             )
         ).all()
         assert len(rls) == 3
         assert all(row.relrowsecurity and row.relforcerowsecurity for row in rls)
         assert (
             connection.scalar(
-                text("SELECT count(*) FROM pg_policies WHERE schemaname = 'public'")
+                text(
+                    "SELECT count(*) FROM pg_policies WHERE schemaname = 'public' "
+                    "AND tablename IN ('tenant', 'user', 'user_tenant')"
+                )
             )
             == 3
         )
@@ -87,17 +90,17 @@ def test_identity_tables_require_tenant_context(
             )
             == 1
         )
-    for table in ("tenants", "users", "user_tenants"):
+    for table in ("tenant", '"user"', "user_tenant"):
         with runtime_engine.connect() as connection:
             assert connection.execute(text(f"SELECT * FROM {table}")).all() == []
         for statement in (f"DELETE FROM {table}", f"UPDATE {table} SET active = false"):
             with pytest.raises(ProgrammingError), runtime_engine.begin() as connection:
                 connection.execute(text(statement))
     for statement, params in (
-        ("INSERT INTO tenants (id, name) VALUES (:id, 'Denied')", {"id": uuid4()}),
-        ("INSERT INTO users (id, name) VALUES (:id, 'Denied')", {"id": uuid4()}),
+        ("INSERT INTO tenant (id, name) VALUES (:id, 'Denied')", {"id": uuid4()}),
+        ("INSERT INTO \"user\" (id, name) VALUES (:id, 'Denied')", {"id": uuid4()}),
         (
-            "INSERT INTO user_tenants (tenant_id, user_id) VALUES (:tenant, :user)",
+            "INSERT INTO user_tenant (tenant_id, user_id) VALUES (:tenant, :user)",
             {"tenant": tenant_id, "user": user_id},
         ),
     ):
@@ -107,6 +110,6 @@ def test_identity_tables_require_tenant_context(
         ):
             connection.execute(text(statement), params)
     with admin_engine.connect() as connection:
-        assert connection.scalar(text("SELECT count(*) FROM tenants")) == 1
-        assert connection.scalar(text("SELECT count(*) FROM users")) == 1
-        assert connection.scalar(text("SELECT count(*) FROM user_tenants")) == 1
+        assert connection.scalar(text("SELECT count(*) FROM tenant")) == 1
+        assert connection.scalar(text('SELECT count(*) FROM "user"')) == 1
+        assert connection.scalar(text("SELECT count(*) FROM user_tenant")) == 1

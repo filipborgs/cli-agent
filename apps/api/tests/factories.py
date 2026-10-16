@@ -16,7 +16,7 @@ class ClinicFactory:
         tenant_id = uuid4()
         with self.admin_engine.begin() as connection:
             connection.execute(
-                text("INSERT INTO tenants (id, name) VALUES (:id, :name)"),
+                text("INSERT INTO tenant (id, name) VALUES (:id, :name)"),
                 {"id": tenant_id, "name": name},
             )
         return tenant_id
@@ -25,7 +25,7 @@ class ClinicFactory:
         user_id = uuid4()
         with self.admin_engine.begin() as connection:
             connection.execute(
-                text("INSERT INTO users (id, name) VALUES (:id, :name)"),
+                text('INSERT INTO "user" (id, name) VALUES (:id, :name)'),
                 {"id": user_id, "name": name},
             )
         return user_id
@@ -34,7 +34,7 @@ class ClinicFactory:
         with self.admin_engine.begin() as connection:
             connection.execute(
                 text(
-                    "INSERT INTO user_tenants (tenant_id, user_id) "
+                    "INSERT INTO user_tenant (tenant_id, user_id) "
                     "VALUES (:tenant, :user)"
                 ),
                 {"tenant": tenant_id, "user": user_id},
@@ -53,7 +53,7 @@ class ClinicFactory:
         with self.admin_engine.begin() as connection:
             connection.execute(
                 text(
-                    "UPDATE user_tenants SET active = false WHERE tenant_id = :tenant_id AND user_id = :user_id"
+                    "UPDATE user_tenant SET active = false WHERE tenant_id = :tenant_id AND user_id = :user_id"
                 ),
                 {"tenant_id": tenant_id, "user_id": user_id},
             )

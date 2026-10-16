@@ -25,14 +25,14 @@ def test_cross_tenant_read_and_write(factory, runtime_engine: Engine) -> None:
     with tenant_session(runtime_engine, first) as session:
         assert (
             session.execute(
-                text("SELECT id FROM tenants WHERE id = :tenant"),
+                text("SELECT id FROM tenant WHERE id = :tenant"),
                 {"tenant": second.tenant_id},
             ).all()
             == []
         )
         with pytest.raises(ProgrammingError):
             session.execute(
-                text("UPDATE tenants SET name = 'Denied' WHERE id = :tenant"),
+                text("UPDATE tenant SET name = 'Denied' WHERE id = :tenant"),
                 {"tenant": second.tenant_id},
             )
 
@@ -54,14 +54,14 @@ def test_pool_context_reset_after_exception(factory, runtime_engine: Engine) -> 
         with tenant_session(engine, second) as session:
             assert (
                 session.scalar(
-                    text("SELECT count(*) FROM tenants WHERE id = :tenant"),
+                    text("SELECT count(*) FROM tenant WHERE id = :tenant"),
                     {"tenant": first.tenant_id},
                 )
                 == 0
             )
             assert (
                 session.scalar(
-                    text("SELECT count(*) FROM tenants WHERE id = :tenant"),
+                    text("SELECT count(*) FROM tenant WHERE id = :tenant"),
                     {"tenant": second.tenant_id},
                 )
                 == 1
@@ -73,7 +73,7 @@ def test_pool_context_reset_after_exception(factory, runtime_engine: Engine) -> 
 def test_missing_context_sees_no_business_rows(factory, runtime_engine: Engine) -> None:
     factory.identity()
     with runtime_engine.connect() as connection:
-        assert connection.execute(text("SELECT id FROM tenants")).all() == []
+        assert connection.execute(text("SELECT id FROM tenant")).all() == []
 
 
 def test_inactive_membership_is_denied(factory, runtime_engine: Engine) -> None:

@@ -30,7 +30,7 @@ def _timestamps() -> list[sa.Column[sa.DateTime]]:
 
 def upgrade() -> None:
     op.execute("CREATE EXTENSION IF NOT EXISTS btree_gist")
-    for table in ("tenants", "users"):
+    for table in ("tenant", "user"):
         op.create_table(
             table,
             sa.Column("id", sa.Uuid(), nullable=False),
@@ -40,7 +40,7 @@ def upgrade() -> None:
             sa.PrimaryKeyConstraint("id", name=f"pk_{table}"),
         )
     op.create_table(
-        "user_tenants",
+        "user_tenant",
         sa.Column("tenant_id", sa.Uuid(), nullable=False),
         sa.Column("user_id", sa.Uuid(), nullable=False),
         sa.Column("role", sa.Text(), nullable=False, server_default="admin"),
@@ -48,14 +48,14 @@ def upgrade() -> None:
         *_timestamps(),
         sa.PrimaryKeyConstraint("tenant_id", "user_id", name="pk_user_tenants"),
         sa.ForeignKeyConstraint(
-            ["tenant_id"], ["tenants.id"], name="fk_user_tenants_tenant_id"
+            ["tenant_id"], ["tenant.id"], name="fk_user_tenant_tenant_id"
         ),
         sa.ForeignKeyConstraint(
-            ["user_id"], ["users.id"], name="fk_user_tenants_user_id"
+            ["user_id"], ["user.id"], name="fk_user_tenant_user_id"
         ),
         sa.CheckConstraint("role = 'admin'", name="ck_user_tenants_admin_role"),
     )
-    for table in ("tenants", "users", "user_tenants"):
+    for table in ("tenant", '"user"', "user_tenant"):
         op.execute(f"ALTER TABLE {table} ENABLE ROW LEVEL SECURITY")
         op.execute(f"ALTER TABLE {table} FORCE ROW LEVEL SECURITY")
     # Migration bookkeeping is not application data, despite bootstrap defaults.
@@ -63,7 +63,7 @@ def upgrade() -> None:
 
 
 def downgrade() -> None:
-    op.drop_table("user_tenants")
-    op.drop_table("users")
-    op.drop_table("tenants")
+    op.drop_table("user_tenant")
+    op.drop_table("user")
+    op.drop_table("tenant")
     op.execute("DROP EXTENSION IF EXISTS btree_gist")

@@ -1,6 +1,6 @@
 # Dicionário físico do banco
 
-Status: `tenants`, `users` e `user_tenants` implementadas pela migração
+Status: `tenant`, `user` e `user_tenant` implementadas pela migração
 `0001_identity`; demais tabelas e modelos ORM continuam planejados. A origem é o
 [desenho conceitual aprovado](../superpowers/specs/2026-10-09-clinic-database-design.md).
 
@@ -11,10 +11,10 @@ o módulo proprietário, regras RN e testes de evidência das tabelas entregues.
 ## Convenções
 
 - IDs UUID gerados pela aplicação com `uuid4()`; não dependem de extensão.
-- `tenant_id UUID NOT NULL` em tabelas de negócio, exceto `tenants` e `users`.
+- `tenant_id UUID NOT NULL` em tabelas de negócio, exceto `tenant` e `user`.
 - Tabelas referenciáveis têm `PRIMARY KEY(id)` e `UNIQUE(tenant_id, id)`.
 - Toda FK de negócio inclui `tenant_id`; referências à clínica incluem o tenant.
-- Autores de eventos/decisões referenciam `(tenant_id, user_id)` em `user_tenants`,
+- Autores de eventos/decisões referenciam `(tenant_id, user_id)` em `user_tenant`,
   preservando a participação histórica mesmo se o acesso for inativado.
 - Associação sem identidade própria usa PK composta por tenant e seus dois IDs.
 - `created_at`/`updated_at TIMESTAMPTZ` nas entidades mutáveis; eventos históricos
@@ -38,9 +38,9 @@ A lista contém 26 tabelas; cada uma será detalhada e verificada na sua entrega
 
 | Tabela | Campos/associações específicos |
 | --- | --- |
-| `tenants` | `id`, `name`, `active` |
-| `users` | `id`, `name`, `active`; sem senha nesta entrega |
-| `user_tenants` | `user_id`, `tenant_id`, `role='admin'`, `active` |
+| `tenant` | `id`, `name`, `active` |
+| `user` | `id`, `name`, `active`; sem senha nesta entrega |
+| `user_tenant` | `user_id`, `tenant_id`, `role='admin'`, `active` |
 | `clinics` | `name`, `timezone`, `default_duration_minutes` |
 | `patients`, `therapists` | `name` |
 | `specialties` | `name`, `normalized_name`; normalizado único por tenant |
@@ -73,15 +73,15 @@ compartilhada existe, mas ainda não contém entidades.
 
 | Tabela | Colunas (tipo PostgreSQL, todas NOT NULL) |
 | --- | --- |
-| `tenants`, `users` | `id UUID` sem default SQL; `name TEXT`; `active BOOLEAN DEFAULT true`; `created_at TIMESTAMPTZ DEFAULT now()`; `updated_at TIMESTAMPTZ DEFAULT now()` |
-| `user_tenants` | `tenant_id UUID`; `user_id UUID`; `role TEXT DEFAULT 'admin'`; `active BOOLEAN DEFAULT true`; `created_at TIMESTAMPTZ DEFAULT now()`; `updated_at TIMESTAMPTZ DEFAULT now()` |
+| `tenant`, `user` | `id UUID` sem default SQL; `name TEXT`; `active BOOLEAN DEFAULT true`; `created_at TIMESTAMPTZ DEFAULT now()`; `updated_at TIMESTAMPTZ DEFAULT now()` |
+| `user_tenant` | `tenant_id UUID`; `user_id UUID`; `role TEXT DEFAULT 'admin'`; `active BOOLEAN DEFAULT true`; `created_at TIMESTAMPTZ DEFAULT now()`; `updated_at TIMESTAMPTZ DEFAULT now()` |
 
-- PKs/índices: `pk_tenants(id)`, `pk_users(id)` e
-  `pk_user_tenants(tenant_id, user_id)`. A PK composta também atende às futuras
+- PKs/índices: `pk_tenant(id)`, `pk_user(id)` e
+  `pk_user_tenant(tenant_id, user_id)`. A PK composta também atende às futuras
   referências de autores por `(tenant_id, user_id)`; não há índices adicionais.
-- FKs: `fk_user_tenants_tenant_id` → `tenants(id)` e
-  `fk_user_tenants_user_id` → `users(id)`, ambas com `NO ACTION`, sem cascade.
-- `ck_user_tenants_admin_role`: `role = 'admin'` (RN-003).
+- FKs: `fk_user_tenant_tenant_id` → `tenant(id)` e
+  `fk_user_tenant_user_id` → `user(id)`, ambas com `NO ACTION`, sem cascade.
+- `ck_user_tenant_admin_role`: `role = 'admin'` (RN-003).
 - IDs são fornecidos pela aplicação. `updated_at` não possui trigger; futuras
   alterações de serviço devem atualizá-lo explicitamente.
 - `btree_gist` é instalado para as exclusões futuras; não há exclusões nesta revisão.

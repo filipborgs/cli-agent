@@ -8,7 +8,7 @@ from clinic_api.db.base import Base
 
 
 class Tenant(Base):
-    __tablename__ = "tenants"
+    __tablename__ = "tenant"
 
     id: Mapped[UUID] = mapped_column(primary_key=True)
     name: Mapped[str] = mapped_column(Text)
