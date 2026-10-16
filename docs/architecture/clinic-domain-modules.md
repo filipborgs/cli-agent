@@ -1,8 +1,8 @@
 # Módulos de persistência e negócio da clínica
 
-Status: estrutura planejada a pedido do responsável pelo projeto. Os pacotes
-abaixo ainda serão criados nas tasks do
-[plano de implementação](../superpowers/plans/2026-10-09-clinic-database.md).
+A infraestrutura disponível consiste em `environment.py`, `settings.py`, `db/base.py`, engine
+síncrono em `db/session.py` e Alembic. Os pacotes de modelos e domínio abaixo
+descrevem a organização prevista para os serviços clínicos, ainda não implementados.
 
 ## Limites por domínio
 
@@ -36,10 +36,34 @@ no domínio proprietário, sem arquivos globais crescentes de tipos ou serviços
 
 ## Contratos e manutenção
 
-Assinaturas, retornos, estados e testes ficam nas interfaces de cada task do
-plano; nomes físicos estão no [dicionário](../database/schema.md); regras
-funcionais estão nos [IDs RN](../business/business-rules.md). Esta página é o
-mapa de responsabilidade, não outra cópia desses contratos.
+`environment.py` centraliza os nomes (`EnvironmentVariable: StrEnum`) e todo
+acesso ao ambiente Python. Os métodos de instância `.optional()` e `.required()`
+aceitam `str` (default), `int` ou `bool`, com retorno inferido pelo tipo pedido,
+e leem somente na chamada,
+sem cache: ausente/vazio resulta em `None` no opcional ou `ValueError` seguro no
+requerido. Conversões inválidas lançam `ValueError` seguro em ambos os métodos;
+strings preservam espaços, inteiros usam base decimal e booleanos usam tokens
+explícitos sem distinção de caixa e sem espaços externos.
+`Settings`, Alembic e fixtures dependem desse módulo, sem acesso
+direto ao SO. O [contrato de configuração](../database/operations.md#acesso-centralizado-ao-ambiente-python)
+detalha chaves, overrides e validação; [test_environment.py](../../apps/api/tests/test_environment.py)
+verifica métodos e inferência estática. Imports da API/health continuam sem exigir configuração.
+
+`create_engine(database_url: str) -> Engine` cria conexões síncronas,
+sem sessões/transações de tenant. `Settings` separa URL runtime da administrativa;
+Alembic exige somente a administrativa. `Base: DeclarativeBase` centraliza a
+metadata, ainda sem entidades: a migração fundadora usa operações Alembic diretas.
+O registro explícito de modelos ainda não está implementado. Seeds/limpeza administrativos
+ficam em testes; o runtime não contorna RLS. Contratos/evidência:
+[`test_database.py`](../../apps/api/tests/test_database.py),
+[`test_settings.py`](../../apps/api/tests/test_settings.py) e
+[operação](../database/operations.md). RN-001/RN-003 têm defesa fail-closed;
+autorização por tenant e serviços clínicos ainda não estão disponíveis.
+
+Nomes físicos e estados estão no [dicionário](../database/schema.md); regras
+funcionais estão nos [IDs RN](../business/business-rules.md). Contratos de serviço
+devem ser descritos nesta página junto do módulo proprietário, indicando entradas,
+retornos, limites transacionais e testes correspondentes.
 
 Toda nova funcionalidade deve indicar seu domínio e módulo proprietário. Se
 um módulo crescer com responsabilidades independentes, subdividi-lo dentro do

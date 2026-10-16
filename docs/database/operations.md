@@ -1,40 +1,141 @@
 # Operação do banco de dados
 
-Status: documentação operacional iniciada. Banco, papéis PostgreSQL, migrações
-e comandos dedicados ainda serão implementados pelas Tasks 1 e 10 do
-[plano](../superpowers/plans/2026-10-09-clinic-database.md).
+A infraestrutura usa PostgreSQL 18, papéis separados, Alembic e testes reais.
+Compose persistente de desenvolvimento, serviço `migrate`, integração de startup,
+autorização por tenant e ORM ainda não estão disponíveis.
+Veja o [schema](schema.md#identidade-entregue--0001_identity).
 
-## Comandos disponíveis hoje
+## Configuração e contratos
 
-Os comandos existentes do projeto são `make dev`, `make check`, `make test`,
-`make build` e `make smoke`. Eles validam a fundação web/API atual; ainda não
-comprovam persistência, isolamento de tenants ou geração de agenda.
-
-## Configuração planejada
-
-| Item | Finalidade prevista |
+| Item | Contrato implementado |
 | --- | --- |
-| PostgreSQL 18 | Banco compartilhado, com dados isolados por tenant. |
-| `DATABASE_URL` | Conexão runtime, sem privilégios de migração ou BYPASSRLS. |
-| `MIGRATION_DATABASE_URL` | Conexão administrativa exclusiva de bootstrap/migrações. |
-| `clinic_runtime` | Papel de dados usado pela API e pelos testes de domínio. |
-| `clinic_migrator` | Dono do esquema para migração e provisionamento administrativo. |
-| Serviço Compose `migrate` | Aplica migrações antes de iniciar a API. |
-| `make test-api` | Runner planejado de testes da API com PostgreSQL descartável. |
+| `DATABASE_URL` | URL SQLAlchemy `postgresql+psycopg://...` runtime; obrigatória ao carregar `Settings()` sem valor explícito. |
+| `MIGRATION_DATABASE_URL` | URL administrativa; opcional para `Settings`, obrigatória para Alembic, sem fallback para runtime. |
+| `clinic_runtime` | LOGIN, NOSUPERUSER, NOBYPASSRLS; sem propriedade/CREATE no esquema; grants de SELECT/INSERT/UPDATE/DELETE. |
+| `clinic_migrator` | LOGIN, NOSUPERUSER, BYPASSRLS; dono de `public` e tabelas; CREATE no banco para instalar a extensão confiável `btree_gist`. |
 
-Estes itens descrevem o alvo do plano, não comandos/configurações já disponíveis.
-Não colocar credenciais reais nos exemplos versionados.
+Os dois papéis não possuem CREATEDB, CREATEROLE ou REPLICATION. `PUBLIC` não tem
+acesso ao esquema `public`; runtime recebe USAGE. Default privileges do migrator
+cobrem tabelas futuras e sequências (USAGE/SELECT), mas `alembic_version` fica
+sem grants runtime. As tabelas de identidade têm RLS forçada sem políticas:
+runtime recebe zero linhas em SELECT/UPDATE/DELETE e erro RLS em INSERT.
+O contexto autorizado por transação ainda não está implementado.
 
-## Procedimentos a completar na implementação
+`Settings(database_url: str, migration_database_url: str | None)` permite valores
+explícitos e lê as variáveis quando omitidos. `create_engine(database_url: str)`
+retorna engine síncrono SQLAlchemy com `pool_pre_ping`; importar a API/health
+não abre conexão nem exige essas variáveis. `.env.example` contém somente
+exemplos locais; não é carregado automaticamente por `Settings`.
 
-1. Documentar bootstrap de um banco novo, criação de papéis e grants.
-2. Publicar comandos verificados para `upgrade`, consulta de revisão e `downgrade`.
-3. Explicar acesso administrativo versus runtime e contexto de tenant por transação.
-4. Explicar o volume persistente de desenvolvimento e a limpeza dos bancos descartáveis.
-5. Documentar runner/fixtures, testes concorrentes e isolamento entre tenants.
-6. Explicar dependências e falhas de startup do banco, migração e API.
-7. Registrar evidência de `make check`, `make test`, `make build` e `make smoke`
-   da entrega, sem transformar resultados de uma sessão em garantia permanente.
+### Acesso centralizado ao ambiente Python
 
-Cada procedimento deve incluir pré-requisitos, comando, resultado esperado e
-efeito nos dados, com versões e variáveis efetivamente implementadas.
+[`clinic_api/environment.py`](../../apps/api/src/clinic_api/environment.py) é o
+único proprietário dos nomes de variáveis e do acesso a `os.environ`/`os.getenv`
+no código Python da API, migrations e fixtures. `EnvironmentVariable(StrEnum)`
+define as chaves `DATABASE_URL` e `MIGRATION_DATABASE_URL`, com valores iguais
+aos nomes externos existentes; declarações shell/Compose mantêm esse contrato.
+Consumidores importam o enum em vez de repetir strings ou consultar o SO.
+
+- `EnvironmentVariable.DATABASE_URL.required()` devolve `str`;
+  `.optional()` devolve `str | None`. `.value` continua sendo o nome da chave,
+  nunca o conteúdo do ambiente. Ambos os métodos leem a chave a cada chamada.
+- O argumento posicional `value_type` aceita somente `str` (default), `int` e
+  `bool`: `.required(int)` infere `int`, `.optional(int)` infere `int | None`,
+  `.required(bool)` infere `bool` e `.optional(bool)` infere `bool | None`.
+  Passar `str` explicitamente mantém os retornos de string correspondentes.
+- Ausente ou igual a `""` resulta em `None` no opcional e `ValueError` no
+  requerido, para todos os tipos. Conteúdo presente inválido lança `ValueError`
+  em ambos: opcional não esconde erro de conversão como ausência.
+- Inteiros usam `int(valor, 10)` (por exemplo, `"42"`, `" -12 "` e `"0"`);
+  `"abc"`, `"1.5"` e `"0x10"` são inválidos. Booleanos removem espaços externos
+  e ignoram caixa: `true/1/yes/on` viram `True`, `false/0/no/off` viram `False`;
+  qualquer outro conteúdo é inválido. Não se usa `bool(string)`.
+- Erros de conversão identificam chave e tipo esperado, sem conteúdo bruto;
+  exceções subjacentes de conversão não aparecem no encadeamento exibido.
+- Não há leitura no import, cache, carregamento de `.env`, normalização de
+  espaços em strings ou validação da sintaxe da URL nesses métodos; strings não
+  vazias são preservadas. A conexão continua sob responsabilidade do engine.
+- `Settings` é uma dataclass frozen: suas fábricas de defaults chamam `.required()`
+  para runtime e `.optional()` para migrations. Overrides explícitos
+  dispensam a leitura da chave correspondente, inclusive `None` administrativo.
+- Alembic chama somente `EnvironmentVariable.MIGRATION_DATABASE_URL.required()`;
+  funciona sem `DATABASE_URL` e nunca a usa como fallback. O runtime não exige
+  credencial administrativa nem a usa para suprir runtime ausente.
+- Fixtures `admin_engine` e `runtime_engine` usam o mesmo método `.required()`
+  e suas respectivas chaves. Testes alteram o ambiente usando o enum.
+
+Evidências: [métodos e assertions de tipos](../../apps/api/tests/test_environment.py),
+[Settings/import sem configuração](../../apps/api/tests/test_settings.py) e
+[migrações com PostgreSQL real](../../apps/api/tests/test_database.py).
+Valide também a inferência estática com
+`uv run --project apps/api mypy --strict apps/api/src apps/api/tests/test_environment.py`.
+
+## Runner descartável (local e CI)
+
+Pré-requisitos: Docker/Compose disponíveis ao usuário, uv e Python 3.13.
+Execute na raiz:
+
+```bash
+make test-api
+PYTEST_ARGS='apps/api/tests/test_database.py' make test-api
+PYTEST_ARGS='apps/api/tests/test_database.py -k runtime' make test-api
+make test
+```
+
+`scripts/test-api.sh` usa `compose.test.yaml` com `postgres:18`, projeto exclusivo
+por processo/sufixo aleatório, volume próprio e porta dinâmica ligada a
+`127.0.0.1`. O healthcheck TCP evita o servidor temporário da inicialização.
+Após readiness, o runner chama `scripts/bootstrap-db.sh`, exporta URLs próprias
+e roda `uv run --project apps/api pytest -W error -v` com a pasta de testes
+explícita. Credenciais `disposable_*_password` só servem a esse banco descartável.
+Argumentos do shell são repassados a pytest. `make test` mantém os testes web.
+A CI da API usa o mesmo runner em Ubuntu com Docker disponível.
+
+O trap EXIT (incluindo INT/TERM) remove containers, rede e volumes após sucesso
+ou falha. Não usa bancos/volumes de desenvolvimento. Fixtures aplicam `upgrade
+head` com migrator e fazem TRUNCATE das tabelas de aplicação antes/depois de cada
+teste com esse papel. `admin_engine`, `runtime_engine` e `factory: ClinicFactory`
+são as interfaces de teste; seeds de identidade usam SQL, sem ORM.
+Todos os testes da API passam pela limpeza; sem URLs, a execução direta falha
+explicitamente, sem skip de persistência. Rodar testes concorrentes em processos
+independentes significa usar um runner separado por processo; pytest-xdist no
+mesmo banco ainda não é suportado.
+
+## Bootstrap compartilhado de banco novo
+
+Pré-requisitos: container PostgreSQL ativo, banco existente e acesso psql
+administrativo local via `docker exec`. Exemplo, com credenciais locais:
+
+```bash
+POSTGRES_USER=postgres POSTGRES_DB=clinic \
+MIGRATOR_PASSWORD=local_migrator_password RUNTIME_PASSWORD=local_runtime_password \
+bash scripts/bootstrap-db.sh CONTAINER_ID
+```
+
+O script cria os papéis se ausentes, reaplica atributos/senhas, transfere `public`
+ao migrator e configura grants/default privileges. Reexecutá-lo é possível, mas
+rotaciona as senhas informadas. Seu alvo é o banco novo; não é ferramenta para
+sanear memberships/grants arbitrários de instalações existentes. Provisionamento
+persistente deve usar o mesmo contrato de papéis e privilégios.
+
+## Alembic em um banco provisionado
+
+Defina apenas a URL administrativa; a URL runtime não é necessária:
+
+```bash
+export MIGRATION_DATABASE_URL='postgresql+psycopg://clinic_migrator:local_migrator_password@localhost:5432/clinic'
+uv run --project apps/api alembic -c apps/api/alembic.ini upgrade head
+uv run --project apps/api alembic -c apps/api/alembic.ini current
+# Destrutivo: remove tabelas de identidade/dados e btree_gist.
+uv run --project apps/api alembic -c apps/api/alembic.ini downgrade base
+uv run --project apps/api alembic -c apps/api/alembic.ini upgrade head
+```
+
+`head/current` é `0001_identity`; após downgrade só permanece bookkeeping do
+Alembic. O caminho de migrations é relativo ao ini, independente do diretório
+atual. Não usar autogenerate para identidade enquanto não houver registro ORM:
+metadata vazia não representa ainda as tabelas da migração fundadora.
+
+`make check`, `make test`, `make build` e `make smoke` validam a entrega
+transversal. Smoke ainda comprova o contrato HTTP/containers existente; não
+comprova startup integrado do banco nem serviços clínicos futuros.

@@ -1,7 +1,8 @@
 # Banco de dados da agenda clínica
 
-Status: modelo conceitual aprovado; contrato físico planejado. PostgreSQL,
-modelos ORM e migrações ainda não foram implementados.
+Status: modelo conceitual aprovado; fundação PostgreSQL 18, Alembic,
+`0001_identity` e testes descartáveis implementados. Demais tabelas,
+modelos ORM e autorização por tenant continuam planejados.
 
 ## Referências canônicas
 
@@ -11,7 +12,6 @@ modelos ORM e migrações ainda não foram implementados.
 - [Dicionário físico planejado](schema.md): nomes de tabelas, campos, estados e constraints.
 - [Operação](operations.md): situação atual e procedimentos a documentar na implementação.
 - [Módulos de persistência e domínio](../architecture/clinic-domain-modules.md): proprietários das entidades e serviços.
-- [Plano de implementação](../superpowers/plans/2026-10-09-clinic-database.md): tarefas, interfaces e testes que entregarão o banco.
 - [Contexto para agentes](../agents/database-context.md): navegação por assunto e critérios de revisão.
 
 ## Organização dos dados
@@ -48,5 +48,6 @@ Vincular tabela/constraint à regra RN, módulo proprietário, migração e test
 Quando uma parte for implementada, registrar sua evidência e seu estado; não
 considerar uma tabela existente apenas porque aparece neste planejamento.
 
-O dicionário é a referência física; o desenho é a referência conceitual; o plano
-é a sequência de entrega. Evitar três cópias independentes da mesma definição.
+O dicionário é a referência física; o desenho é a referência conceitual; o mapa
+de módulos descreve responsabilidades e contratos. Evitar definições duplicadas
+que possam divergir.

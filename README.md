@@ -4,7 +4,10 @@ Fundacao tecnica para uma aplicacao de clinicas. O produto futuro coordenara ate
 
 ## Escopo atual
 
-SPA React, API FastAPI, containers, qualidade automatizada e CI. Banco, autenticacao e regras clinicas ainda nao estao implementados. O escopo de negocio e o desenho inicial do banco estao documentados e aprovados.
+SPA React, API FastAPI, containers, qualidade automatizada, CI e fundação
+PostgreSQL 18/Alembic com identidade fail-closed e testes reais descartáveis.
+Autenticação, autorização por tenant, ORM e regras clínicas ainda são planejados.
+O escopo de negócio e o desenho inicial do banco estão documentados e aprovados.
 
 ## Documentacao
 
@@ -35,7 +38,8 @@ Abra `http://localhost:8080`. O modo de desenvolvimento usa recarga. Para valida
 
 - `make format`: aplica formatacao.
 - `make check`: formatacao, lint e tipos.
-- `make test`: testes de API e web.
+- `make test`: testes de API com PostgreSQL descartável e testes web (requer Docker).
+- `make test-api`: somente API; aceita `PYTEST_ARGS='apps/api/tests/test_database.py'`.
 - `make build`: builds locais e imagens.
 - `make smoke`: sobe imagens, valida web e API, e remove o ambiente.
 

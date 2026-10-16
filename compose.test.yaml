@@ -1,0 +1,19 @@
+services:
+  db:
+    image: postgres:18
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: disposable_admin_password
+      POSTGRES_DB: clinic_test
+    ports:
+      - "127.0.0.1::5432"
+    volumes:
+      - test_db:/var/lib/postgresql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -h 127.0.0.1 -U postgres -d clinic_test"]
+      interval: 1s
+      timeout: 5s
+      retries: 60
+
+volumes:
+  test_db:

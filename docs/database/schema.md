@@ -1,11 +1,10 @@
 # Dicionário físico do banco
 
-Status: contrato planejado para revisão e implementação. Nenhuma tabela abaixo
-está implementada nesta etapa. A origem é o
+Status: `tenants`, `users` e `user_tenants` implementadas pela migração
+`0001_identity`; demais tabelas e modelos ORM continuam planejados. A origem é o
 [desenho conceitual aprovado](../superpowers/specs/2026-10-09-clinic-database-design.md).
 
-Esta é a referência canônica dos nomes e restrições físicos usados pelo
-[plano de implementação](../superpowers/plans/2026-10-09-clinic-database.md).
+Esta é a referência canônica dos nomes e restrições físicos da persistência.
 Após implementar cada migração, acrescentar aqui a identificação da migração,
 o módulo proprietário, regras RN e testes de evidência das tabelas entregues.
 
@@ -64,6 +63,36 @@ A lista contém 26 tabelas; cada uma será detalhada e verificada na sua entrega
 | `appointment_events` | `appointment_id`, `actor_id NULL`, `recorded_at`, `kind`, `reason`, `before JSONB`, `after JSONB` |
 | `generation_deficits` | `generation_run_id`, `treatment_plan_id`, `week_start DATE`, `missing_count`, `reason_code`, `details JSONB` |
 | `replacement_dues` | `original_appointment_id`, `treatment_plan_id`, `reason`, `status`, `decided_by NULL`, `decided_at NULL`, `closed_reason NULL` |
+
+## Identidade entregue — `0001_identity`
+
+Definição física: infraestrutura de persistência da API, em
+[`0001_identity.py`](../../apps/api/migrations/versions/0001_identity.py).
+Os modelos de identidade e o registro ORM ainda não existem; a `Base.metadata`
+compartilhada existe, mas ainda não contém entidades.
+
+| Tabela | Colunas (tipo PostgreSQL, todas NOT NULL) |
+| --- | --- |
+| `tenants`, `users` | `id UUID` sem default SQL; `name TEXT`; `active BOOLEAN DEFAULT true`; `created_at TIMESTAMPTZ DEFAULT now()`; `updated_at TIMESTAMPTZ DEFAULT now()` |
+| `user_tenants` | `tenant_id UUID`; `user_id UUID`; `role TEXT DEFAULT 'admin'`; `active BOOLEAN DEFAULT true`; `created_at TIMESTAMPTZ DEFAULT now()`; `updated_at TIMESTAMPTZ DEFAULT now()` |
+
+- PKs/índices: `pk_tenants(id)`, `pk_users(id)` e
+  `pk_user_tenants(tenant_id, user_id)`. A PK composta também atende às futuras
+  referências de autores por `(tenant_id, user_id)`; não há índices adicionais.
+- FKs: `fk_user_tenants_tenant_id` → `tenants(id)` e
+  `fk_user_tenants_user_id` → `users(id)`, ambas com `NO ACTION`, sem cascade.
+- `ck_user_tenants_admin_role`: `role = 'admin'` (RN-003).
+- IDs são fornecidos pela aplicação. `updated_at` não possui trigger; futuras
+  alterações de serviço devem atualizá-lo explicitamente.
+- `btree_gist` é instalado para as exclusões futuras; não há exclusões nesta revisão.
+- Todas as três tabelas pertencem a `clinic_migrator`, têm RLS habilitada e
+  forçada, **sem políticas permissivas**. O runtime possui grants de DML, mas
+  não vê/altera linhas e não consegue inserir. Isso é a fundação fail-closed de
+   RN-001/RN-003. A autorização por tenant ainda não está implementada.
+- `alembic_version` é bookkeeping, sem acesso runtime. Downgrade para `base`
+  remove as três tabelas e `btree_gist`; não remove os papéis/esquema bootstrap.
+- Evidência: [`test_database.py`](../../apps/api/tests/test_database.py), incluindo
+  upgrade/downgrade/upgrade, separação de credenciais e negação real de DML runtime.
 
 ## Estados e categorias
 

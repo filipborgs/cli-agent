@@ -36,7 +36,7 @@ jobs:
       - run: uv run --project apps/api ruff format --check apps/api
       - run: uv run --project apps/api ruff check apps/api
       - run: uv run --project apps/api mypy apps/api/src
-      - run: uv run --project apps/api pytest -W error -v
+      - run: bash scripts/test-api.sh
 
   containers:
     needs: [web, api]

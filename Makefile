@@ -1,4 +1,4 @@
-.PHONY: dev format check test build smoke
+.PHONY: dev format check test test-api build smoke
 
 dev:
 	docker compose -f compose.yaml -f compose.dev.yaml up --build
@@ -16,8 +16,11 @@ check:
 	corepack pnpm --dir apps/web typecheck
 
 test:
-	uv run --project apps/api pytest -W error -v
+	bash scripts/test-api.sh
 	corepack pnpm --dir apps/web test
+
+test-api:
+	bash scripts/test-api.sh $(PYTEST_ARGS)
 
 build:
 	uv build --project apps/api

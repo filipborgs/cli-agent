@@ -1,12 +1,15 @@
 # Contexto para agentes: banco e agenda
 
-## Escopo e estado
+## Escopo e limites
 
-Banco ainda não implementado. O [desenho conceitual](../superpowers/specs/2026-10-09-clinic-database-design.md)
-está aprovado; o [dicionário físico](../database/schema.md) é o contrato planejado.
-As interfaces, paths, testes e sequência estão no
-[plano](../superpowers/plans/2026-10-09-clinic-database.md).
-Não iniciar implementação só por ler este contexto; seguir a tarefa autorizada.
+A persistência usa PostgreSQL 18 e migração `0001_identity`, com
+RLS forçada sem políticas permissivas, papéis separados e testes reais em Docker.
+O [desenho conceitual](../superpowers/specs/2026-10-09-clinic-database-design.md)
+está aprovado; o [dicionário físico](../database/schema.md) distingue identidade
+existente dos demais elementos propostos. ORM, registro de entidades e contexto
+autorizado por tenant ainda não estão disponíveis. Interfaces e proprietários
+dos módulos estão no [mapa de arquitetura](../architecture/clinic-domain-modules.md).
+Respeitar o escopo de trabalho autorizado pelo usuário.
 
 ## Fontes por decisão
 
@@ -17,23 +20,28 @@ Não iniciar implementação só por ler este contexto; seguir a tarefa autoriza
 | Entidade/cardinalidade | [Desenho](../superpowers/specs/2026-10-09-clinic-database-design.md#4-modelo-de-dados-aprovado) e [diagramas](../architecture/clinic-database-diagrams.md) |
 | Nome físico, coluna e constraint | [Schema](../database/schema.md) |
 | Dono de módulo e imports | [Mapa](../architecture/clinic-domain-modules.md) |
-| Assinatura e teste da entrega | Task correspondente do [plano](../superpowers/plans/2026-10-09-clinic-database.md) |
+| Interface e limite transacional | [Contratos dos módulos](../architecture/clinic-domain-modules.md#contratos-e-manutenção) e código proprietário |
 | Papéis, migrações e comando | [Operação](../database/operations.md), depois conferir arquivos implementados |
+| Acesso ao ambiente Python | [Contrato centralizado](../database/operations.md#acesso-centralizado-ao-ambiente-python); importar `EnvironmentVariable` de `clinic_api.environment` e usar `.required()`/`.optional()` em Settings, Alembic e fixtures; conversão tipada para `str`, `int` e `bool`. |
 
-## Mapa de risco e evidência planejada
+## Mapa de invariantes
 
-| Tema | Regras | Task / testes planejados |
+| Tema | Regras | Comportamento a verificar |
 | --- | --- | --- |
-| Tenant e autorização | RN-001, RN-003 | 2 / `test_tenant_isolation.py` |
-| Cadastros e salas | RN-002, RN-004 | 3, 6 / `test_catalog.py`, `test_appointments.py` |
-| Frequência, duração e disponibilidade | RN-005 a RN-010 | 4, 5 / `test_planning.py`, `test_weekly_slots.py` |
-| Ajustes e concorrência | RN-011, RN-012, RN-014 a RN-016 | 6 / `test_appointments.py`, `test_scheduling_concurrency.py` |
-| Fechamentos e ausências antecipadas | RN-017 a RN-020 | 8 / `test_calendar.py` |
-| Dívida e tentativas | RN-021 a RN-026 | 7, 8 / `test_replacements.py`, `test_calendar.py` |
-| Geração parcial e repetição | RN-013, RN-014 | 9 / `test_generation.py` |
-| Metadata e deploy | Integridade técnica | 2, 10 / `test_model_registry.py`, `test_migrations.py`, smoke |
+| Tenant e autorização | RN-001, RN-003 | Contexto autorizado e ausência de vazamento entre organizações. |
+| Cadastros e salas | RN-002, RN-004 | Participação na unidade e compatibilidade de especialidade. |
+| Frequência, duração e disponibilidade | RN-005 a RN-010 | Frequência única por vínculo, janelas vigentes e rotina estável. |
+| Ajustes e concorrência | RN-011, RN-012, RN-014 a RN-016 | Sem dupla reserva; identidade da ocorrência e histórico preservados. |
+| Fechamentos e ausências antecipadas | RN-017 a RN-020 | Atendimento devido corretamente identificado; feriados não criam sessões. |
+| Dívida e tentativas | RN-021 a RN-026 | Mesmo direito/origem ao reagendar; sem pendência filha. |
+| Geração parcial e repetição | RN-013, RN-014 | Motivos de déficit e ausência de duplicação. |
+| Metadata e deploy | Integridade técnica | Schema, privilégios, migrations e startup coerentes. |
 
-Os testes acima são alvos do plano, não arquivos já presentes.
+Esses invariantes orientam a implementação do modelo clínico. A persistência
+existente é verificada por `apps/api/tests/test_database.py`; usar `make test-api`, conforme
+[operação](../database/operations.md). Bootstrap compartilhado:
+`scripts/bootstrap-db.sh`; fixtures `admin_engine`, `runtime_engine` e
+`factory: ClinicFactory` usam banco descartável, com limpeza pelo migrator.
 
 ## Invariantes de revisão
 
@@ -54,7 +62,7 @@ Os testes acima são alvos do plano, não arquivos já presentes.
 - Todos os modelos usam uma metadata e registro explícito. Serviços fazem flush;
   a transação externa confirma ou desfaz sessão, histórico e dívida juntos.
 
-## Ao concluir uma task
+## Manutenção da referência
 
 Atualizar a referência afetada e indicar RN, módulo, migração e teste. Conferir
 que exemplos e diagramas continuam válidos e que o estado entregue foi atualizado

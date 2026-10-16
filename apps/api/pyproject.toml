@@ -8,7 +8,10 @@ version = "0.1.0"
 description = "API for clinic scheduling"
 requires-python = ">=3.13,<3.14"
 dependencies = [
+  "alembic>=1.16,<2",
   "fastapi>=0.115,<1.0",
+  "psycopg[binary]>=3.2,<4",
+  "sqlalchemy>=2.0,<3",
   "uvicorn[standard]>=0.34,<1.0",
 ]
 

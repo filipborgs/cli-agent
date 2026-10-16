@@ -29,6 +29,7 @@
 - Organizar `db/models` em pacotes por domínio, com arquivos pequenos de entidades relacionadas; não concentrar cada domínio em um único arquivo crescente.
 - Organizar também `domain` por domínio, com tipos e serviços próximos das regras que possuem; código compartilhado contém apenas conceitos realmente transversais.
 - Toda entrega deve atualizar sua documentação de negócio, banco, arquitetura, interfaces e operação conforme o que mudar; incluir referências curtas para agentes de IA.
+- Documentação de referência deve orientar por assunto e contrato, sem referências a números de tasks, handoffs ou tracking; registrar progresso somente no plano e nos registros de execução.
 
 ## Review Focus
 

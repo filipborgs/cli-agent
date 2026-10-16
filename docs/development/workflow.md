@@ -7,6 +7,12 @@
 5. Documente toda entrega e atualize as referencias afetadas antes de concluir a tarefa.
 6. Mantenha um objetivo testavel por commit.
 
+Para testes da API, use `make test-api` (Docker/Compose e uv) ou
+`PYTEST_ARGS='apps/api/tests/test_database.py' make test-api`. `make test` usa o
+mesmo runner PostgreSQL descartável e mantém o teste web. Não executar pytest
+contra bancos persistentes: fixtures limpam tabelas de aplicação com migrator.
+Detalhes de papéis, URLs, bootstrap e migrations: [operação](../database/operations.md).
+
 Quando o remote GitHub existir, configure a protecao de `main` para exigir os checks `web`, `api` e `containers`. Essa configuracao e operacional e deve ser aplicada no GitHub; ela nao e representada apenas pelos arquivos do repositorio.
 
 ## Documentação como parte da entrega
@@ -23,8 +29,14 @@ atualize a fonte canônica pertinente:
 | Comando, configuração, migração ou operação | `docs/database/operations.md`, README da aplicação e este workflow |
 | Decisão arquitetural relevante | ADR em `docs/decisions`, ligado à entrega |
 
-Regras ficam no documento funcional; campos e constraints no dicionário; sequência
-de entrega no plano. Evite definições repetidas que possam divergir. Novas fontes
+Documentação de referência deve ser autossuficiente por assunto e orientar
+humanos e agentes sobre conceitos, contratos, arquitetura e operação. Não incluir
+números de trabalho, referências a tasks, andamento, handoffs ou histórico de
+execução nessas páginas. Planos e registros de trabalho guardam o acompanhamento
+da execução, sem fazer parte dos contratos do projeto.
+
+Regras ficam no documento funcional; campos e constraints no dicionário.
+Evite definições repetidas que possam divergir. Novas fontes
 devem ter título claro, estado de implementação, proprietário/responsabilidade,
 contratos e links para regra, código, migração e teste quando aplicáveis.
 
