@@ -2,5 +2,6 @@ from importlib import import_module
 
 
 def register_models() -> None:
+    import_module("clinic_api.db.models.catalog.entities")
     import_module("clinic_api.db.models.identity.access")
     import_module("clinic_api.db.models.identity.organization")
