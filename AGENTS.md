@@ -9,4 +9,4 @@ Leia este arquivo antes de editar. `apps/web` consome a API somente por HTTP; a 
 - Nao edite manualmente `pnpm-lock.yaml` ou `apps/api/uv.lock`; regenere-os pela ferramenta correspondente.
 - Escreva ou atualize testes antes de mudar comportamento.
 - Execute `make check`, `make test`, `make build` e `make smoke` antes de concluir trabalho transversal.
-- Crie commits pequenos: cada commit deve conter um unico objetivo testavel e revisavel. Nao agrupe entregas independentes.
+- Crie commits pequenos e incrementais: cada commit deve conter um unico objetivo testavel e revisavel, mesmo quando a feature ainda nao terminou. Inclua migracao, modelos, testes e documentacao que formam aquele incremento; nao aguarde a feature inteira nem agrupe entregas independentes.

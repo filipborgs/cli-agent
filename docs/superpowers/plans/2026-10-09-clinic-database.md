@@ -25,7 +25,7 @@
 - Usar `uv`, Ruff, mypy estrito e pytest; testes antes de mudar comportamento.
 - Não editar manualmente `apps/api/uv.lock` ou `pnpm-lock.yaml`.
 - Executar `make check`, `make test`, `make build` e `make smoke` antes de concluir a implementação transversal.
-- Um commit por objetivo testável. Só executar commits quando autorizados na sessão de implementação.
+- Um commit por incremento coeso, testável e revisável. Não esperar a feature inteira para registrar migração, modelos, testes e documentação já completos; só executar commits quando autorizados na sessão de implementação.
 - Organizar `db/models` em pacotes por domínio, com arquivos pequenos de entidades relacionadas; não concentrar cada domínio em um único arquivo crescente.
 - Organizar também `domain` por domínio, com tipos e serviços próximos das regras que possuem; código compartilhado contém apenas conceitos realmente transversais.
 - Toda entrega deve atualizar sua documentação de negócio, banco, arquitetura, interfaces e operação conforme o que mudar; incluir referências curtas para agentes de IA.

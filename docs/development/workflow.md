@@ -5,7 +5,7 @@
 3. Rode verificacoes do escopo; antes de integrar, rode `make check`, `make test`, `make build` e `make smoke`.
 4. Atualize lockfiles somente por `corepack pnpm install` ou `uv lock`.
 5. Documente toda entrega e atualize as referencias afetadas antes de concluir a tarefa.
-6. Mantenha um objetivo testavel por commit.
+6. Mantenha um objetivo testavel e revisavel por commit. Commits sao incrementais: registre cada fatia coesa com sua migracao, modelos, testes e documentacao, sem esperar a feature inteira terminar; nao misture entregas independentes.
 
 Para testes da API, use `make test-api` (Docker/Compose e uv) ou
 `PYTEST_ARGS='apps/api/tests/test_database.py' make test-api`. `make test` usa o
