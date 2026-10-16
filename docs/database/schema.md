@@ -94,6 +94,16 @@ compartilhada existe, mas ainda não contém entidades.
 - Evidência: [`test_database.py`](../../apps/api/tests/test_database.py), incluindo
   upgrade/downgrade/upgrade, separação de credenciais e negação real de DML runtime.
 
+## Isolamento administrativo entregue — `0002_tenant_isolation`
+
+Os modelos `Tenant`, `User` e `UserTenant` pertencem aos módulos de identidade
+e são registrados explicitamente antes de Alembic usar `Base.metadata`. O
+runtime só recebe `SELECT` nessas tabelas. RLS é forçada: `users` expõe apenas
+o usuário de `app.user_id`, `user_tenants` apenas suas participações e
+`tenants` apenas o tenant de `app.tenant_id` com participação administrativa
+ativa. As chaves de contexto são locais à transação; sem contexto não há linhas
+visíveis. `clinic_runtime` não recebe DDL, BYPASSRLS ou escrita de identidades.
+
 ## Estados e categorias
 
 | Campo/conceito | Valores |

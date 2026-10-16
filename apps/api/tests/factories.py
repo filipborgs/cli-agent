@@ -3,6 +3,8 @@ from uuid import UUID, uuid4
 
 from sqlalchemy import Engine, text
 
+from clinic_api.domain.identity.context import AccessContext
+
 
 @dataclass
 class ClinicFactory:
@@ -36,4 +38,22 @@ class ClinicFactory:
                     "VALUES (:tenant, :user)"
                 ),
                 {"tenant": tenant_id, "user": user_id},
+            )
+
+    def identity(self) -> AccessContext:
+        tenant_id = self.tenant()
+        user_id = self.user()
+        self.membership(tenant_id, user_id)
+        return AccessContext(user_id=user_id, tenant_id=tenant_id)
+
+    def context_for(self, user_id: UUID, tenant_id: UUID) -> AccessContext:
+        return AccessContext(user_id=user_id, tenant_id=tenant_id)
+
+    def deactivate_membership(self, tenant_id: UUID, user_id: UUID) -> None:
+        with self.admin_engine.begin() as connection:
+            connection.execute(
+                text(
+                    "UPDATE user_tenants SET active = false WHERE tenant_id = :tenant_id AND user_id = :user_id"
+                ),
+                {"tenant_id": tenant_id, "user_id": user_id},
             )

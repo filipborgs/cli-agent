@@ -61,7 +61,7 @@ def test_runtime_role_is_not_privileged(runtime_engine: Engine) -> None:
     assert role.rolbypassrls is False
 
 
-def test_identity_tables_deny_runtime_access(
+def test_identity_tables_require_tenant_context(
     admin_engine: Engine, runtime_engine: Engine, factory: ClinicFactory
 ) -> None:
     tenant_id, user_id = factory.tenant(), factory.user()
@@ -79,7 +79,7 @@ def test_identity_tables_deny_runtime_access(
             connection.scalar(
                 text("SELECT count(*) FROM pg_policies WHERE schemaname = 'public'")
             )
-            == 0
+            == 3
         )
         assert (
             connection.scalar(
@@ -88,13 +88,11 @@ def test_identity_tables_deny_runtime_access(
             == 1
         )
     for table in ("tenants", "users", "user_tenants"):
-        with runtime_engine.begin() as connection:
+        with runtime_engine.connect() as connection:
             assert connection.execute(text(f"SELECT * FROM {table}")).all() == []
-            assert connection.execute(text(f"DELETE FROM {table}")).rowcount == 0
-            assert (
-                connection.execute(text(f"UPDATE {table} SET active = false")).rowcount
-                == 0
-            )
+        for statement in (f"DELETE FROM {table}", f"UPDATE {table} SET active = false"):
+            with pytest.raises(ProgrammingError), runtime_engine.begin() as connection:
+                connection.execute(text(statement))
     for statement, params in (
         ("INSERT INTO tenants (id, name) VALUES (:id, 'Denied')", {"id": uuid4()}),
         ("INSERT INTO users (id, name) VALUES (:id, 'Denied')", {"id": uuid4()}),
@@ -104,7 +102,7 @@ def test_identity_tables_deny_runtime_access(
         ),
     ):
         with (
-            pytest.raises(ProgrammingError, match="row-level security"),
+            pytest.raises(ProgrammingError),
             runtime_engine.begin() as connection,
         ):
             connection.execute(text(statement), params)

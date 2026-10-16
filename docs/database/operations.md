@@ -11,15 +11,17 @@ Veja o [schema](schema.md#identidade-entregue--0001_identity).
 | --- | --- |
 | `DATABASE_URL` | URL SQLAlchemy `postgresql+psycopg://...` runtime; obrigatória ao carregar `Settings()` sem valor explícito. |
 | `MIGRATION_DATABASE_URL` | URL administrativa; opcional para `Settings`, obrigatória para Alembic, sem fallback para runtime. |
-| `clinic_runtime` | LOGIN, NOSUPERUSER, NOBYPASSRLS; sem propriedade/CREATE no esquema; grants de SELECT/INSERT/UPDATE/DELETE. |
+| `clinic_runtime` | LOGIN, NOSUPERUSER, NOBYPASSRLS; sem propriedade/CREATE no esquema; somente SELECT nas identidades. |
 | `clinic_migrator` | LOGIN, NOSUPERUSER, BYPASSRLS; dono de `public` e tabelas; CREATE no banco para instalar a extensão confiável `btree_gist`. |
 
 Os dois papéis não possuem CREATEDB, CREATEROLE ou REPLICATION. `PUBLIC` não tem
 acesso ao esquema `public`; runtime recebe USAGE. Default privileges do migrator
 cobrem tabelas futuras e sequências (USAGE/SELECT), mas `alembic_version` fica
-sem grants runtime. As tabelas de identidade têm RLS forçada sem políticas:
-runtime recebe zero linhas em SELECT/UPDATE/DELETE e erro RLS em INSERT.
-O contexto autorizado por transação ainda não está implementado.
+sem grants runtime. As tabelas de identidade têm RLS forçada. Serviços usam
+`tenant_session(engine, AccessContext)`, que valida participação administrativa
+ativa e define `app.user_id` e `app.tenant_id` com `set_config(..., true)`
+localmente à transação. Sem contexto não há linhas visíveis; rollback remove o
+contexto antes de uma conexão retornar ao pool.
 
 `Settings(database_url: str, migration_database_url: str | None)` permite valores
 explícitos e lê as variáveis quando omitidos. `create_engine(database_url: str)`

@@ -1,10 +1,11 @@
 from alembic import context
 
 from clinic_api.db.base import Base
+from clinic_api.db.models.registry import register_models
 from clinic_api.db.session import create_engine
 from clinic_api.environment import EnvironmentVariable
 
-# The founding schema is defined by explicit migrations, independent of ORM metadata.
+register_models()
 target_metadata = Base.metadata
 database_url = EnvironmentVariable.MIGRATION_DATABASE_URL.required()
 
