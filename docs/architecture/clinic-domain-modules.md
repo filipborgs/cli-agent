@@ -2,14 +2,14 @@
 
 A infraestrutura disponível consiste em `environment.py`, `settings.py`, `db/base.py`, engine
 síncrono em `db/session.py` e Alembic. Os pacotes de modelos e domínio abaixo
-descrevem a organização prevista para os serviços clínicos, ainda não implementados.
+descrevem a organização dos serviços clínicos implementados e planejados.
 
 ## Limites por domínio
 
 | Domínio | Modelos em `db/models/` | Serviços/tipos em `domain/` | Responsabilidade |
 | --- | --- | --- | --- |
 | Identidade e organização | `identity/organization.py`, `access.py` | `identity/context.py` | Tenant, clínica, usuário e contexto autorizado. |
-| Cadastros | `catalog/people.py`, `affiliations.py`, `specialties.py`, `facilities.py` | `catalog/clinics.py`, `people.py`, `rooms.py`, `affiliations.py`, `specialties.py`, `lifecycle.py` | Pessoas, unidades, salas e habilitações. |
+| Cadastros | `catalog/entities.py` | `catalog/clinic.py`, `patient.py`, `patient_clinic.py`, `therapist.py`, `specialty.py`, `room.py`, `types.py`, `ports.py` | Pessoas, unidades, salas e habilitações. |
 | Planejamento | `planning/treatment.py`, `availability.py`, `weekly.py` | `planning/treatments.py`, `availability.py`, `weekly.py`, `time.py`, `types.py` | Frequência/duração, janelas, vigência e rotina semanal. |
 | Calendário | `calendar/closures.py`, `person_blocks.py` | `calendar/closures.py`, `person_blocks.py`, `queries.py` | Fechamentos, indisponibilidades e consulta de impedimentos. |
 | Agenda e reposição | `scheduling/appointments.py`, `replacements.py`, `agendas.py` | `scheduling/appointments.py`, `replacements.py`, `replacement_state.py`, `types.py` | Sessões, histórico, direitos e transições da dívida. |
@@ -52,8 +52,8 @@ verifica métodos e inferência estática. Imports da API/health continuam sem e
 `create_engine(database_url: str) -> Engine` cria conexões síncronas,
 sem sessões/transações de tenant. `Settings` separa URL runtime da administrativa;
 Alembic exige somente a administrativa. `Base: DeclarativeBase` centraliza a
-metadata, ainda sem entidades: a migração fundadora usa operações Alembic diretas.
-O registro explícito de modelos ainda não está implementado. Seeds/limpeza administrativos
+metadata; `db/models/registry.py` importa explicitamente os modelos de identidade
+e catálogo para manter a metadata coerente com as migrações. Seeds/limpeza administrativos
 ficam em testes; o runtime não contorna RLS. Contratos/evidência:
 [`test_database.py`](../../apps/api/tests/test_database.py),
 [`test_settings.py`](../../apps/api/tests/test_settings.py) e

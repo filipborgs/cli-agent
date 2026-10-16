@@ -4,3 +4,7 @@ class DomainError(Exception):
 
 class AccessDenied(DomainError):
     pass
+
+
+class ValidationError(DomainError):
+    pass
