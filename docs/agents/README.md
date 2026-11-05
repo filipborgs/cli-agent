@@ -6,7 +6,7 @@ Depois use a tabela para ler somente as referências pertinentes à tarefa.
 
 ## Escopo e fontes
 
-Persistência disponível: 12 tabelas com modelos ORM, Alembic até `0004_catalog_integrity` e RLS administrativa: identidade e catálogo.
+Persistência disponível: 17 tabelas com modelos ORM, Alembic até `0005_treatment_planning` e RLS administrativa: identidade e catálogo, planos e disponibilidades.
 Demais estruturas do desenho continuam planejadas. Autenticação, serviços
 clínicos e startup persistente da API permanecem planejados.
 

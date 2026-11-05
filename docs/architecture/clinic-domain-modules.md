@@ -1,6 +1,6 @@
 # Módulos de persistência e negócio da clínica
 
-Persistência disponível: 12 tabelas com modelos ORM, Alembic até `0004_catalog_integrity` e RLS administrativa: identidade e catálogo.
+Persistência disponível: 17 tabelas com modelos ORM, Alembic até `0005_treatment_planning` e RLS administrativa: identidade e catálogo, planos e disponibilidades.
 A tabela abaixo descreve a organização prevista e entregue; consulte o
 [dicionário](../database/schema.md) para o inventário implementado.
 Serviços clínicos além dos casos de uso iniciais do catálogo são planejados.

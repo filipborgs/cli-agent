@@ -15,7 +15,7 @@ O runner exporta `DATABASE_URL` runtime e `MIGRATION_DATABASE_URL` administrativ
 aplica migrations nas fixtures e sempre remove o volume. Pytest direto requer
 essas URLs e um banco descartável provisionado; não há skip silencioso.
 
-Persistência entregue: 12 tabelas com modelos ORM, Alembic até `0004_catalog_integrity` e RLS administrativa: identidade e catálogo.
+Persistência entregue: 17 tabelas com modelos ORM, Alembic até `0005_treatment_planning` e RLS administrativa: identidade e catálogo, planos e disponibilidades.
 Demais estruturas e serviços clínicos continuam planejados.
 Consulte [operação](../../docs/database/operations.md) e o
 [dicionário](../../docs/database/schema.md) para contratos e migrações.

@@ -75,3 +75,24 @@ def context(connection: Connection, tenant_id: UUID, user_id: UUID) -> None:
         ),
         {"tenant": str(tenant_id), "user": str(user_id)},
     )
+
+
+def planning(connection: Connection, tenant_id: UUID) -> dict[str, UUID]:
+    ids = catalog(connection, tenant_id)
+    plan = insert(
+        connection,
+        "treatment_plan",
+        tenant_id=tenant_id,
+        patient_id=ids["patient_id"],
+        therapist_id=ids["therapist_id"],
+        specialty_id=ids["specialty_id"],
+        sessions_per_week=2,
+        valid_from="2026-10-01",
+    )
+    connection.execute(
+        text(
+            "INSERT INTO treatment_plan_clinic (tenant_id, treatment_plan_id, clinic_id) VALUES (:tenant_id, :plan, :clinic_id)"
+        ),
+        {**ids, "plan": plan},
+    )
+    return {**ids, "treatment_plan_id": plan}

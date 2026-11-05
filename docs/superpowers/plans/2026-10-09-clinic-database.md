@@ -45,11 +45,11 @@ plano inserem dados diretamente por SQL/ORM, sem depender de serviços clínicos
 
 Branch de execução: `feat/clinic-database-schema`, baseada em `52f1a6d`.
 O usuário autorizou os oito commits incrementais em 2026-11-04. Este snapshot
-inclui identidade e catálogo: 12 tabelas, head `0004_catalog_integrity`.
+inclui identidade e catálogo, planos e disponibilidades: 17 tabelas, head `0005_treatment_planning`.
 As demais etapas continuam planejadas até seus respectivos incrementos.
 Não há autorização de push ou merge.
 
-Verificação deste incremento: 30 passed in 5.49s ==============================.
+Verificação deste incremento: 37 passed in 7.01s ==============================.
 A implementação foi previamente revisada; regressões e auditorias transversais
 são incorporadas nos incrementos correspondentes.
 
@@ -205,15 +205,15 @@ e índices correspondentes.
 `0005_treatment_planning.py` e `apps/api/tests/test_planning_schema.py`.
 **Regras relacionadas:** RN-005 a RN-008.
 
-- [ ] Escrever testes para frequência/duração positivas, duração opcional,
+- [x] Escrever testes para frequência/duração positivas, duração opcional,
   vigência válida, dia 0–6, início de janela menor que fim e FKs entre tenants.
   Planos da mesma combinação paciente/terapeuta/especialidade não podem ter
   vigências sobrepostas; vigências adjacentes e especialidades distintas são aceitas.
-- [ ] Confirmar falha com o runner antes da migração.
-- [ ] Criar `treatment_plan`, `treatment_plan_clinic`, `patient_availability`,
+- [x] Confirmar falha com o runner antes da migração.
+- [x] Criar `treatment_plan`, `treatment_plan_clinic`, `patient_availability`,
   `therapist_availability` e `clinic_hours`, com exclusão GiST de vigências,
   chaves compostas, RLS e modelos ORM correspondentes.
-- [ ] Executar testes específicos, matriz RLS e registro; conferir em SQL a
+- [x] Executar testes específicos, matriz RLS e registro; conferir em SQL a
   equivalência entre vigência inclusiva e range usado pela exclusão.
 
 ### Task 5: Persistência da rotina semanal

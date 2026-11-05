@@ -1,7 +1,7 @@
 # Dicionário físico do banco
 
-Status: 12 tabelas de aplicação e modelos ORM implementados; head
-Alembic `0004_catalog_integrity`. Serviços clínicos e geração automática continuam planejados.
+Status: 17 tabelas de aplicação e modelos ORM implementados; head
+Alembic `0005_treatment_planning`. Serviços clínicos e geração automática continuam planejados.
 
 ## Convenções
 
@@ -46,7 +46,7 @@ e políticas. Revisões existentes são preservadas.
 
 ## Evidências
 
-Testes de banco disponíveis: [`test_catalog_schema.py`](../../apps/api/tests/test_catalog_schema.py).
+Testes de banco disponíveis: [`test_catalog_schema.py`](../../apps/api/tests/test_catalog_schema.py), [`test_planning_schema.py`](../../apps/api/tests/test_planning_schema.py).
 O registro ORM e o round-trip das migrações são verificados pelos testes
 existentes de banco. Auditoria transversal adicional permanece planejada.
 
@@ -78,6 +78,33 @@ Teste: [`test_catalog_schema.py`](../../apps/api/tests/test_catalog_schema.py).
 - `PRIMARY KEY (id)`.
 - `CONSTRAINT uq_clinic_tenant_id UNIQUE (tenant_id, id)`.
 
+### `clinic_hours`
+
+ORM: [`ClinicHours`](../../apps/api/src/clinic_api/db/models/planning/availability.py).
+Migração: [`0005_treatment_planning`](../../apps/api/migrations/versions/0005_treatment_planning.py). Regras relacionadas: RN-008.
+Teste: [`test_planning_schema.py`](../../apps/api/tests/test_planning_schema.py).
+
+| Coluna | Tipo | Nulabilidade | Default SQL |
+| --- | --- | --- | --- |
+| `id` | `UUID` | NOT NULL | `—` |
+| `tenant_id` | `UUID` | NOT NULL | `—` |
+| `created_at` | `TIMESTAMP WITH TIME ZONE` | NOT NULL | `now()` |
+| `updated_at` | `TIMESTAMP WITH TIME ZONE` | NOT NULL | `now()` |
+| `clinic_id` | `UUID` | NOT NULL | `—` |
+| `weekday` | `SMALLINT` | NOT NULL | `—` |
+| `start_time` | `TIME WITHOUT TIME ZONE` | NOT NULL | `—` |
+| `end_time` | `TIME WITHOUT TIME ZONE` | NOT NULL | `—` |
+| `valid_from` | `DATE` | NOT NULL | `—` |
+| `valid_until` | `DATE` | NULL | `—` |
+
+- `CONSTRAINT ck_clinic_hours_validity CHECK (valid_until IS NULL OR valid_until >= valid_from)`.
+- `CONSTRAINT ck_clinic_hours_weekday CHECK (weekday BETWEEN 0 AND 6)`.
+- `CONSTRAINT ck_clinic_hours_window CHECK (start_time < end_time)`.
+- `CONSTRAINT fk_clinic_hours_clinic FOREIGN KEY(tenant_id, clinic_id) REFERENCES clinic (tenant_id, id)`.
+- `CONSTRAINT fk_clinic_hours_tenant FOREIGN KEY(tenant_id) REFERENCES tenant (id)`.
+- `PRIMARY KEY (id)`.
+- `CONSTRAINT uq_clinic_hours_tenant_id_id UNIQUE (tenant_id, id)`.
+
 ### `patient`
 
 ORM: [`Patient`](../../apps/api/src/clinic_api/db/models/catalog/people.py).
@@ -96,6 +123,35 @@ Teste: [`test_catalog_schema.py`](../../apps/api/tests/test_catalog_schema.py).
 - `FOREIGN KEY(tenant_id) REFERENCES tenant (id)`.
 - `PRIMARY KEY (id)`.
 - `CONSTRAINT uq_patient_tenant_id UNIQUE (tenant_id, id)`.
+
+### `patient_availability`
+
+ORM: [`PatientAvailability`](../../apps/api/src/clinic_api/db/models/planning/availability.py).
+Migração: [`0005_treatment_planning`](../../apps/api/migrations/versions/0005_treatment_planning.py). Regras relacionadas: RN-008.
+Teste: [`test_planning_schema.py`](../../apps/api/tests/test_planning_schema.py).
+
+| Coluna | Tipo | Nulabilidade | Default SQL |
+| --- | --- | --- | --- |
+| `id` | `UUID` | NOT NULL | `—` |
+| `tenant_id` | `UUID` | NOT NULL | `—` |
+| `created_at` | `TIMESTAMP WITH TIME ZONE` | NOT NULL | `now()` |
+| `updated_at` | `TIMESTAMP WITH TIME ZONE` | NOT NULL | `now()` |
+| `clinic_id` | `UUID` | NOT NULL | `—` |
+| `patient_id` | `UUID` | NOT NULL | `—` |
+| `weekday` | `SMALLINT` | NOT NULL | `—` |
+| `start_time` | `TIME WITHOUT TIME ZONE` | NOT NULL | `—` |
+| `end_time` | `TIME WITHOUT TIME ZONE` | NOT NULL | `—` |
+| `valid_from` | `DATE` | NOT NULL | `—` |
+| `valid_until` | `DATE` | NULL | `—` |
+
+- `CONSTRAINT ck_patient_availability_validity CHECK (valid_until IS NULL OR valid_until >= valid_from)`.
+- `CONSTRAINT ck_patient_availability_weekday CHECK (weekday BETWEEN 0 AND 6)`.
+- `CONSTRAINT ck_patient_availability_window CHECK (start_time < end_time)`.
+- `CONSTRAINT fk_patient_availability_clinic FOREIGN KEY(tenant_id, clinic_id) REFERENCES clinic (tenant_id, id)`.
+- `CONSTRAINT fk_patient_availability_patient FOREIGN KEY(tenant_id, patient_id) REFERENCES patient (tenant_id, id)`.
+- `CONSTRAINT fk_patient_availability_tenant FOREIGN KEY(tenant_id) REFERENCES tenant (id)`.
+- `PRIMARY KEY (id)`.
+- `CONSTRAINT uq_patient_availability_tenant_id_id UNIQUE (tenant_id, id)`.
 
 ### `patient_clinic`
 
@@ -217,6 +273,35 @@ Teste: [`test_catalog_schema.py`](../../apps/api/tests/test_catalog_schema.py).
 - `PRIMARY KEY (id)`.
 - `CONSTRAINT uq_therapist_tenant_id UNIQUE (tenant_id, id)`.
 
+### `therapist_availability`
+
+ORM: [`TherapistAvailability`](../../apps/api/src/clinic_api/db/models/planning/availability.py).
+Migração: [`0005_treatment_planning`](../../apps/api/migrations/versions/0005_treatment_planning.py). Regras relacionadas: RN-008.
+Teste: [`test_planning_schema.py`](../../apps/api/tests/test_planning_schema.py).
+
+| Coluna | Tipo | Nulabilidade | Default SQL |
+| --- | --- | --- | --- |
+| `id` | `UUID` | NOT NULL | `—` |
+| `tenant_id` | `UUID` | NOT NULL | `—` |
+| `created_at` | `TIMESTAMP WITH TIME ZONE` | NOT NULL | `now()` |
+| `updated_at` | `TIMESTAMP WITH TIME ZONE` | NOT NULL | `now()` |
+| `clinic_id` | `UUID` | NOT NULL | `—` |
+| `therapist_id` | `UUID` | NOT NULL | `—` |
+| `weekday` | `SMALLINT` | NOT NULL | `—` |
+| `start_time` | `TIME WITHOUT TIME ZONE` | NOT NULL | `—` |
+| `end_time` | `TIME WITHOUT TIME ZONE` | NOT NULL | `—` |
+| `valid_from` | `DATE` | NOT NULL | `—` |
+| `valid_until` | `DATE` | NULL | `—` |
+
+- `CONSTRAINT ck_therapist_availability_validity CHECK (valid_until IS NULL OR valid_until >= valid_from)`.
+- `CONSTRAINT ck_therapist_availability_weekday CHECK (weekday BETWEEN 0 AND 6)`.
+- `CONSTRAINT ck_therapist_availability_window CHECK (start_time < end_time)`.
+- `CONSTRAINT fk_therapist_availability_clinic FOREIGN KEY(tenant_id, clinic_id) REFERENCES clinic (tenant_id, id)`.
+- `CONSTRAINT fk_therapist_availability_tenant FOREIGN KEY(tenant_id) REFERENCES tenant (id)`.
+- `CONSTRAINT fk_therapist_availability_therapist FOREIGN KEY(tenant_id, therapist_id) REFERENCES therapist (tenant_id, id)`.
+- `PRIMARY KEY (id)`.
+- `CONSTRAINT uq_therapist_availability_tenant_id_id UNIQUE (tenant_id, id)`.
+
 ### `therapist_clinic`
 
 ORM: [`TherapistClinic`](../../apps/api/src/clinic_api/db/models/catalog/affiliations.py).
@@ -256,6 +341,57 @@ Teste: [`test_catalog_schema.py`](../../apps/api/tests/test_catalog_schema.py).
 - `CONSTRAINT fk_therapist_specialty_specialty FOREIGN KEY(tenant_id, specialty_id) REFERENCES specialty (tenant_id, id)`.
 - `CONSTRAINT fk_therapist_specialty_therapist FOREIGN KEY(tenant_id, therapist_id) REFERENCES therapist (tenant_id, id)`.
 - `PRIMARY KEY (tenant_id, therapist_id, specialty_id)`.
+
+### `treatment_plan`
+
+ORM: [`TreatmentPlan`](../../apps/api/src/clinic_api/db/models/planning/treatment.py).
+Migração: [`0005_treatment_planning`](../../apps/api/migrations/versions/0005_treatment_planning.py). Regras relacionadas: RN-005 a RN-007.
+Teste: [`test_planning_schema.py`](../../apps/api/tests/test_planning_schema.py).
+
+| Coluna | Tipo | Nulabilidade | Default SQL |
+| --- | --- | --- | --- |
+| `id` | `UUID` | NOT NULL | `—` |
+| `tenant_id` | `UUID` | NOT NULL | `—` |
+| `created_at` | `TIMESTAMP WITH TIME ZONE` | NOT NULL | `now()` |
+| `updated_at` | `TIMESTAMP WITH TIME ZONE` | NOT NULL | `now()` |
+| `patient_id` | `UUID` | NOT NULL | `—` |
+| `therapist_id` | `UUID` | NOT NULL | `—` |
+| `specialty_id` | `UUID` | NOT NULL | `—` |
+| `sessions_per_week` | `INTEGER` | NOT NULL | `—` |
+| `duration_minutes` | `INTEGER` | NULL | `—` |
+| `valid_from` | `DATE` | NOT NULL | `—` |
+| `valid_until` | `DATE` | NULL | `—` |
+
+- `CONSTRAINT ck_treatment_plan_duration CHECK (duration_minutes IS NULL OR duration_minutes > 0)`.
+- `CONSTRAINT ck_treatment_plan_frequency CHECK (sessions_per_week > 0)`.
+- `CONSTRAINT ck_treatment_plan_validity CHECK (valid_until IS NULL OR valid_until >= valid_from)`.
+- `CONSTRAINT ex_treatment_plan_validity EXCLUDE USING gist (tenant_id WITH =, patient_id WITH =, therapist_id WITH =, specialty_id WITH =, daterange(valid_from, valid_until + 1, '[)') WITH &&)`.
+- `CONSTRAINT fk_treatment_plan_patient FOREIGN KEY(tenant_id, patient_id) REFERENCES patient (tenant_id, id)`.
+- `CONSTRAINT fk_treatment_plan_specialty FOREIGN KEY(tenant_id, specialty_id) REFERENCES specialty (tenant_id, id)`.
+- `CONSTRAINT fk_treatment_plan_tenant FOREIGN KEY(tenant_id) REFERENCES tenant (id)`.
+- `CONSTRAINT fk_treatment_plan_therapist FOREIGN KEY(tenant_id, therapist_id) REFERENCES therapist (tenant_id, id)`.
+- `PRIMARY KEY (id)`.
+- `CONSTRAINT uq_treatment_plan_identity UNIQUE (tenant_id, id, patient_id, therapist_id, specialty_id)`.
+- `CONSTRAINT uq_treatment_plan_tenant_id_id UNIQUE (tenant_id, id)`.
+
+### `treatment_plan_clinic`
+
+ORM: [`TreatmentPlanClinic`](../../apps/api/src/clinic_api/db/models/planning/treatment.py).
+Migração: [`0005_treatment_planning`](../../apps/api/migrations/versions/0005_treatment_planning.py). Regras relacionadas: RN-005 a RN-007.
+Teste: [`test_planning_schema.py`](../../apps/api/tests/test_planning_schema.py).
+
+| Coluna | Tipo | Nulabilidade | Default SQL |
+| --- | --- | --- | --- |
+| `tenant_id` | `UUID` | NOT NULL | `—` |
+| `treatment_plan_id` | `UUID` | NOT NULL | `—` |
+| `clinic_id` | `UUID` | NOT NULL | `—` |
+| `active` | `BOOLEAN` | NOT NULL | `true` |
+| `created_at` | `TIMESTAMP WITH TIME ZONE` | NOT NULL | `now()` |
+| `updated_at` | `TIMESTAMP WITH TIME ZONE` | NOT NULL | `now()` |
+
+- `CONSTRAINT fk_treatment_plan_clinic_clinic FOREIGN KEY(tenant_id, clinic_id) REFERENCES clinic (tenant_id, id)`.
+- `CONSTRAINT fk_treatment_plan_clinic_treatment_plan FOREIGN KEY(tenant_id, treatment_plan_id) REFERENCES treatment_plan (tenant_id, id)`.
+- `PRIMARY KEY (tenant_id, treatment_plan_id, clinic_id)`.
 
 ### `user`
 
