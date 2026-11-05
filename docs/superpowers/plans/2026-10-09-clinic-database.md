@@ -45,7 +45,7 @@ plano inserem dados diretamente por SQL/ORM, sem depender de serviços clínicos
 
 Branch de execução: `feat/clinic-database-schema`, baseada em `52f1a6d`.
 O usuário autorizou os oito commits incrementais em 2026-11-04. Este snapshot
-inclui identidade e catálogo, planos e disponibilidades, rotina semanal, sessões e eventos, reposições, calendário: 23 tabelas, head `0009_calendar_schema`.
+inclui identidade e catálogo, planos e disponibilidades, rotina semanal, sessões e eventos, reposições, calendário, estruturas da agenda mensal: 26 tabelas, head `0010_monthly_agenda_schema`.
 As demais etapas continuam planejadas até seus respectivos incrementos.
 Não há autorização de push ou merge.
 
@@ -289,12 +289,12 @@ e índices correspondentes.
 `0010_monthly_agenda_schema.py` e `apps/api/tests/test_agenda_schema.py`.
 **Regras relacionadas:** suporte de dados para RN-013 e RN-014.
 
-- [ ] Escrever testes de mês no dia 1, unicidade tenant/clínica/mês, vínculo
+- [x] Escrever testes de mês no dia 1, unicidade tenant/clínica/mês, vínculo
   execução/agenda, contagem positiva de déficit, estados e motivos permitidos,
   JSONB e referências ao plano/execução no mesmo tenant.
-- [ ] Confirmar falha; criar `monthly_agenda`, `generation_run` e
+- [x] Confirmar falha; criar `monthly_agenda`, `generation_run` e
   `generation_deficit`, seus modelos ORM, constraints, índices e RLS.
-- [ ] Executar testes específicos, matriz RLS e registro. Não implementar
+- [x] Executar testes específicos, matriz RLS e registro. Não implementar
   geração de sessões, seleção de vagas ou cálculo de déficits.
 
 ### Task 10: Validar cadeia de migrações e equivalência ORM

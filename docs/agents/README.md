@@ -6,7 +6,7 @@ Depois use a tabela para ler somente as referências pertinentes à tarefa.
 
 ## Escopo e fontes
 
-Persistência disponível: 23 tabelas com modelos ORM, Alembic até `0009_calendar_schema` e RLS administrativa: identidade e catálogo, planos e disponibilidades, rotina semanal, sessões e eventos, reposições, calendário.
+Persistência disponível: 26 tabelas com modelos ORM, Alembic até `0010_monthly_agenda_schema` e RLS administrativa: identidade e catálogo, planos e disponibilidades, rotina semanal, sessões e eventos, reposições, calendário, estruturas da agenda mensal.
 Demais estruturas do desenho continuam planejadas. Autenticação, serviços
 clínicos e startup persistente da API permanecem planejados.
 

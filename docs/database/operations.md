@@ -1,7 +1,7 @@
 # Operação do banco de dados
 
 A infraestrutura usa PostgreSQL 18, papéis separados, Alembic e testes reais.
-O schema disponível contém 23 tabelas com modelos ORM, Alembic até `0009_calendar_schema` e RLS administrativa: identidade e catálogo, planos e disponibilidades, rotina semanal, sessões e eventos, reposições, calendário. Compose persistente de desenvolvimento,
+O schema disponível contém 26 tabelas com modelos ORM, Alembic até `0010_monthly_agenda_schema` e RLS administrativa: identidade e catálogo, planos e disponibilidades, rotina semanal, sessões e eventos, reposições, calendário, estruturas da agenda mensal. Compose persistente de desenvolvimento,
 serviço `migrate`, integração de startup e autenticação continuam planejados.
 Veja o [schema](schema.md).
 
@@ -133,7 +133,7 @@ uv run --project apps/api alembic -c apps/api/alembic.ini downgrade base
 uv run --project apps/api alembic -c apps/api/alembic.ini upgrade head
 ```
 
-`head` é `0009_calendar_schema`; `current` mostra a revisão efetivamente
+`head` é `0010_monthly_agenda_schema`; `current` mostra a revisão efetivamente
 aplicada ao banco selecionado. Após downgrade para base só permanece bookkeeping
 do Alembic. O caminho de migrations é relativo ao ini, independente do diretório
 atual. Alembic carrega o registro ORM; revisar qualquer autogenerate manualmente:

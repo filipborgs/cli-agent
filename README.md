@@ -5,7 +5,7 @@ Fundacao tecnica para uma aplicacao de clinicas. O produto futuro coordenara ate
 ## Escopo atual
 
 SPA React, API FastAPI, containers e persistência PostgreSQL.
-Disponível: 23 tabelas com modelos ORM, Alembic até `0009_calendar_schema` e RLS administrativa: identidade e catálogo, planos e disponibilidades, rotina semanal, sessões e eventos, reposições, calendário.
+Disponível: 26 tabelas com modelos ORM, Alembic até `0010_monthly_agenda_schema` e RLS administrativa: identidade e catálogo, planos e disponibilidades, rotina semanal, sessões e eventos, reposições, calendário, estruturas da agenda mensal.
 Demais estruturas e serviços clínicos, autenticação e startup persistente
 continuam planejados.
 

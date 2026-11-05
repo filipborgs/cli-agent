@@ -1,7 +1,7 @@
 # Dicionário físico do banco
 
-Status: 23 tabelas de aplicação e modelos ORM implementados; head
-Alembic `0009_calendar_schema`. Serviços clínicos e geração automática continuam planejados.
+Status: 26 tabelas de aplicação e modelos ORM implementados; head
+Alembic `0010_monthly_agenda_schema`. Serviços clínicos e geração automática continuam planejados.
 
 ## Convenções
 
@@ -75,7 +75,7 @@ reservas e tentativas concorrentes.
 
 ## Evidências
 
-Testes de banco disponíveis: [`test_catalog_schema.py`](../../apps/api/tests/test_catalog_schema.py), [`test_planning_schema.py`](../../apps/api/tests/test_planning_schema.py), [`test_weekly_slot_schema.py`](../../apps/api/tests/test_weekly_slot_schema.py), [`test_appointment_schema.py`](../../apps/api/tests/test_appointment_schema.py), [`test_replacement_schema.py`](../../apps/api/tests/test_replacement_schema.py), [`test_calendar_schema.py`](../../apps/api/tests/test_calendar_schema.py).
+Testes de banco disponíveis: [`test_catalog_schema.py`](../../apps/api/tests/test_catalog_schema.py), [`test_planning_schema.py`](../../apps/api/tests/test_planning_schema.py), [`test_weekly_slot_schema.py`](../../apps/api/tests/test_weekly_slot_schema.py), [`test_appointment_schema.py`](../../apps/api/tests/test_appointment_schema.py), [`test_replacement_schema.py`](../../apps/api/tests/test_replacement_schema.py), [`test_calendar_schema.py`](../../apps/api/tests/test_calendar_schema.py), [`test_agenda_schema.py`](../../apps/api/tests/test_agenda_schema.py).
 O registro ORM e o round-trip das migrações são verificados pelos testes
 existentes de banco. Auditoria transversal adicional permanece planejada.
 
@@ -242,6 +242,81 @@ Teste: [`test_planning_schema.py`](../../apps/api/tests/test_planning_schema.py)
 - `CONSTRAINT fk_clinic_hours_tenant FOREIGN KEY(tenant_id) REFERENCES tenant (id)`.
 - `PRIMARY KEY (id)`.
 - `CONSTRAINT uq_clinic_hours_tenant_id_id UNIQUE (tenant_id, id)`.
+
+### `generation_deficit`
+
+ORM: [`GenerationDeficit`](../../apps/api/src/clinic_api/db/models/scheduling/agendas.py).
+Migração: [`0010_monthly_agenda_schema`](../../apps/api/migrations/versions/0010_monthly_agenda_schema.py). Regras relacionadas: RN-013, RN-014.
+Teste: [`test_agenda_schema.py`](../../apps/api/tests/test_agenda_schema.py).
+
+| Coluna | Tipo | Nulabilidade | Default SQL |
+| --- | --- | --- | --- |
+| `id` | `UUID` | NOT NULL | `—` |
+| `tenant_id` | `UUID` | NOT NULL | `—` |
+| `created_at` | `TIMESTAMP WITH TIME ZONE` | NOT NULL | `now()` |
+| `updated_at` | `TIMESTAMP WITH TIME ZONE` | NOT NULL | `now()` |
+| `generation_run_id` | `UUID` | NOT NULL | `—` |
+| `treatment_plan_id` | `UUID` | NOT NULL | `—` |
+| `week_start` | `DATE` | NOT NULL | `—` |
+| `missing_count` | `INTEGER` | NOT NULL | `—` |
+| `reason_code` | `TEXT` | NOT NULL | `—` |
+| `details` | `JSONB` | NOT NULL | `'{}'::jsonb` |
+
+- `CONSTRAINT ck_generation_deficit_missing CHECK (missing_count > 0)`.
+- `CONSTRAINT ck_generation_deficit_reason_code CHECK (reason_code IN ('no_common_availability', 'no_compatible_room', 'resource_conflict'))`.
+- `CONSTRAINT ck_generation_deficit_week CHECK (EXTRACT(ISODOW FROM week_start) = 1)`.
+- `CONSTRAINT fk_generation_deficit_generation_run FOREIGN KEY(tenant_id, generation_run_id) REFERENCES generation_run (tenant_id, id)`.
+- `CONSTRAINT fk_generation_deficit_tenant FOREIGN KEY(tenant_id) REFERENCES tenant (id)`.
+- `CONSTRAINT fk_generation_deficit_treatment_plan FOREIGN KEY(tenant_id, treatment_plan_id) REFERENCES treatment_plan (tenant_id, id)`.
+- `PRIMARY KEY (id)`.
+- `CONSTRAINT uq_generation_deficit_tenant_id_id UNIQUE (tenant_id, id)`.
+
+### `generation_run`
+
+ORM: [`GenerationRun`](../../apps/api/src/clinic_api/db/models/scheduling/agendas.py).
+Migração: [`0010_monthly_agenda_schema`](../../apps/api/migrations/versions/0010_monthly_agenda_schema.py). Regras relacionadas: RN-013, RN-014.
+Teste: [`test_agenda_schema.py`](../../apps/api/tests/test_agenda_schema.py).
+
+| Coluna | Tipo | Nulabilidade | Default SQL |
+| --- | --- | --- | --- |
+| `id` | `UUID` | NOT NULL | `—` |
+| `tenant_id` | `UUID` | NOT NULL | `—` |
+| `created_at` | `TIMESTAMP WITH TIME ZONE` | NOT NULL | `now()` |
+| `updated_at` | `TIMESTAMP WITH TIME ZONE` | NOT NULL | `now()` |
+| `monthly_agenda_id` | `UUID` | NOT NULL | `—` |
+| `started_at` | `TIMESTAMP WITH TIME ZONE` | NOT NULL | `now()` |
+| `completed_at` | `TIMESTAMP WITH TIME ZONE` | NULL | `—` |
+| `status` | `TEXT` | NOT NULL | `'running'` |
+| `parameters` | `JSONB` | NOT NULL | `'{}'::jsonb` |
+
+- `CONSTRAINT ck_generation_run_status CHECK (status IN ('running', 'completed', 'partial', 'failed'))`.
+- `CONSTRAINT ck_generation_run_times CHECK (completed_at IS NULL OR completed_at >= started_at)`.
+- `CONSTRAINT fk_generation_run_monthly_agenda FOREIGN KEY(tenant_id, monthly_agenda_id) REFERENCES monthly_agenda (tenant_id, id)`.
+- `CONSTRAINT fk_generation_run_tenant FOREIGN KEY(tenant_id) REFERENCES tenant (id)`.
+- `PRIMARY KEY (id)`.
+- `CONSTRAINT uq_generation_run_tenant_id_id UNIQUE (tenant_id, id)`.
+
+### `monthly_agenda`
+
+ORM: [`MonthlyAgenda`](../../apps/api/src/clinic_api/db/models/scheduling/agendas.py).
+Migração: [`0010_monthly_agenda_schema`](../../apps/api/migrations/versions/0010_monthly_agenda_schema.py). Regras relacionadas: RN-013, RN-014.
+Teste: [`test_agenda_schema.py`](../../apps/api/tests/test_agenda_schema.py).
+
+| Coluna | Tipo | Nulabilidade | Default SQL |
+| --- | --- | --- | --- |
+| `id` | `UUID` | NOT NULL | `—` |
+| `tenant_id` | `UUID` | NOT NULL | `—` |
+| `created_at` | `TIMESTAMP WITH TIME ZONE` | NOT NULL | `now()` |
+| `updated_at` | `TIMESTAMP WITH TIME ZONE` | NOT NULL | `now()` |
+| `clinic_id` | `UUID` | NOT NULL | `—` |
+| `month` | `DATE` | NOT NULL | `—` |
+
+- `CONSTRAINT ck_monthly_agenda_month CHECK (EXTRACT(DAY FROM month) = 1)`.
+- `CONSTRAINT fk_monthly_agenda_clinic FOREIGN KEY(tenant_id, clinic_id) REFERENCES clinic (tenant_id, id)`.
+- `CONSTRAINT fk_monthly_agenda_tenant FOREIGN KEY(tenant_id) REFERENCES tenant (id)`.
+- `PRIMARY KEY (id)`.
+- `CONSTRAINT uq_monthly_agenda_tenant_id_clinic_id_month UNIQUE (tenant_id, clinic_id, month)`.
+- `CONSTRAINT uq_monthly_agenda_tenant_id_id UNIQUE (tenant_id, id)`.
 
 ### `patient`
 
