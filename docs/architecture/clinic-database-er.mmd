@@ -1,22 +1,22 @@
 erDiagram
     direction TB
-    tenant {
+    tenant["tenant — Organização que reúne as clínicas"] {
         uuid id PK
         text name
         boolean active
     }
-    user {
+    user["user — Identidade de acesso ao sistema"] {
         uuid id PK
         text name
         boolean active
     }
-    user_tenant {
+    user_tenant["user_tenant — Participação administrativa na organização"] {
         uuid tenant_id PK, FK
         uuid user_id PK, FK
         text role
         boolean active
     }
-    clinic {
+    clinic["clinic — Unidade de atendimento e suas configurações"] {
         text name
         text timezone
         integer default_duration_minutes
@@ -24,38 +24,38 @@ erDiagram
         uuid id PK
         uuid tenant_id FK
     }
-    patient {
+    patient["patient — Cadastro do paciente na organização"] {
         text name
         boolean active
         uuid id PK
         uuid tenant_id FK
     }
-    therapist {
+    therapist["therapist — Cadastro do terapeuta na organização"] {
         text name
         boolean active
         uuid id PK
         uuid tenant_id FK
     }
-    specialty {
+    specialty["specialty — Especialidade de atendimento"] {
         text name
         text normalized_name
         boolean active
         uuid id PK
         uuid tenant_id FK
     }
-    patient_clinic {
+    patient_clinic["patient_clinic — Participação do paciente na clínica"] {
         uuid tenant_id PK, FK
         uuid patient_id PK, FK
         uuid clinic_id PK, FK
         boolean active
     }
-    therapist_clinic {
+    therapist_clinic["therapist_clinic — Participação do terapeuta na clínica"] {
         uuid tenant_id PK, FK
         uuid therapist_id PK, FK
         uuid clinic_id PK, FK
         boolean active
     }
-    room {
+    room["room — Sala de atendimento de uma clínica"] {
         uuid clinic_id FK
         text name
         text normalized_name
@@ -63,19 +63,19 @@ erDiagram
         uuid id PK
         uuid tenant_id FK
     }
-    therapist_specialty {
+    therapist_specialty["therapist_specialty — Especialidade habilitada para o terapeuta"] {
         uuid tenant_id PK, FK
         uuid therapist_id PK, FK
         uuid specialty_id PK, FK
         boolean active
     }
-    room_specialty {
+    room_specialty["room_specialty — Especialidade compatível com a sala"] {
         uuid tenant_id PK, FK
         uuid room_id PK, FK
         uuid specialty_id PK, FK
         boolean active
     }
-    treatment_plan {
+    treatment_plan["treatment_plan — Vínculo de atendimento, frequência e vigência"] {
         uuid id PK
         uuid tenant_id FK
         uuid patient_id FK
@@ -86,13 +86,13 @@ erDiagram
         date valid_from
         date valid_until "opcional"
     }
-    treatment_plan_clinic {
+    treatment_plan_clinic["treatment_plan_clinic — Clínica habilitada para o plano"] {
         uuid tenant_id PK, FK
         uuid treatment_plan_id PK, FK
         uuid clinic_id PK, FK
         boolean active
     }
-    patient_availability {
+    patient_availability["patient_availability — Janelas semanais disponíveis do paciente"] {
         uuid id PK
         uuid tenant_id FK
         uuid clinic_id FK
@@ -103,7 +103,7 @@ erDiagram
         date valid_from
         date valid_until "opcional"
     }
-    therapist_availability {
+    therapist_availability["therapist_availability — Janelas semanais disponíveis do terapeuta"] {
         uuid id PK
         uuid tenant_id FK
         uuid clinic_id FK
@@ -114,7 +114,7 @@ erDiagram
         date valid_from
         date valid_until "opcional"
     }
-    clinic_hours {
+    clinic_hours["clinic_hours — Janelas semanais de funcionamento da clínica"] {
         uuid id PK
         uuid tenant_id FK
         uuid clinic_id FK
@@ -124,7 +124,7 @@ erDiagram
         date valid_from
         date valid_until "opcional"
     }
-    weekly_slot {
+    weekly_slot["weekly_slot — Horário fixo escolhido para a rotina semanal"] {
         uuid id PK
         uuid tenant_id FK
         uuid treatment_plan_id FK
@@ -136,7 +136,7 @@ erDiagram
         date valid_from
         date valid_until "opcional"
     }
-    appointment {
+    appointment["appointment — Sessão de rotina ou tentativa de reposição"] {
         uuid id PK
         uuid tenant_id FK
         uuid treatment_plan_id FK
@@ -156,7 +156,7 @@ erDiagram
         text replacement_decision
         uuid replacement_due_id FK "opcional"
     }
-    appointment_event {
+    appointment_event["appointment_event — Registro histórico de alteração da sessão"] {
         uuid id PK
         uuid tenant_id FK
         uuid appointment_id FK
@@ -166,7 +166,7 @@ erDiagram
         jsonb before
         jsonb after
     }
-    replacement_due {
+    replacement_due["replacement_due — Direito de reposição ligado à sessão original"] {
         uuid id PK
         uuid tenant_id FK
         text original_origin FK "gerado: routine"
@@ -178,7 +178,7 @@ erDiagram
         timestamptz decided_at "opcional"
         text closed_reason "opcional"
     }
-    clinic_closure {
+    clinic_closure["clinic_closure — Fechamento da clínica por um período"] {
         uuid id PK
         uuid tenant_id FK
         uuid clinic_id FK
@@ -187,7 +187,7 @@ erDiagram
         text reason
         uuid created_by FK
     }
-    person_block {
+    person_block["person_block — Indisponibilidade de paciente ou terapeuta"] {
         uuid id PK
         uuid tenant_id FK
         uuid patient_id FK "opcional"
@@ -197,13 +197,13 @@ erDiagram
         text reason
         uuid created_by FK
     }
-    monthly_agenda {
+    monthly_agenda["monthly_agenda — Agenda de uma clínica para um mês"] {
         uuid id PK
         uuid tenant_id FK
         uuid clinic_id FK
         date month
     }
-    generation_run {
+    generation_run["generation_run — Registro de uma execução de geração"] {
         uuid id PK
         uuid tenant_id FK
         uuid monthly_agenda_id FK
@@ -212,7 +212,7 @@ erDiagram
         text status
         jsonb parameters
     }
-    generation_deficit {
+    generation_deficit["generation_deficit — Atendimentos faltantes em uma geração"] {
         uuid id PK
         uuid tenant_id FK
         uuid generation_run_id FK
