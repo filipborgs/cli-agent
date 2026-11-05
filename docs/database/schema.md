@@ -1,7 +1,8 @@
 # Dicionário físico do banco
 
-Status: 26 tabelas de aplicação e modelos ORM implementados; head
-Alembic `0010_monthly_agenda_schema`. Serviços clínicos e geração automática continuam planejados.
+Status: 26 tabelas de aplicação e modelos ORM implementados; head Alembic
+`0010_monthly_agenda_schema`. As tabelas sustentam os contratos aprovados;
+serviços clínicos e geração automática continuam planejados.
 
 ## Convenções
 
@@ -75,9 +76,14 @@ reservas e tentativas concorrentes.
 
 ## Evidências
 
-Testes de banco disponíveis: [`test_catalog_schema.py`](../../apps/api/tests/test_catalog_schema.py), [`test_planning_schema.py`](../../apps/api/tests/test_planning_schema.py), [`test_weekly_slot_schema.py`](../../apps/api/tests/test_weekly_slot_schema.py), [`test_appointment_schema.py`](../../apps/api/tests/test_appointment_schema.py), [`test_replacement_schema.py`](../../apps/api/tests/test_replacement_schema.py), [`test_calendar_schema.py`](../../apps/api/tests/test_calendar_schema.py), [`test_agenda_schema.py`](../../apps/api/tests/test_agenda_schema.py).
-O registro ORM e o round-trip das migrações são verificados pelos testes
-existentes de banco. Auditoria transversal adicional permanece planejada.
+[Testes de migrações e paridade ORM](../../apps/api/tests/test_migrations.py)
+conferem base → head → base → head, tipos, defaults, nulabilidade, PKs/FKs,
+uniques e definições de checks, exclusões e índices, além do inventário de triggers.
+[Testes de isolamento](../../apps/api/tests/test_schema_isolation.py) exercitam
+DML e FKs entre tenants em todas as tabelas de negócio, identidade inativa e
+leitura por classes ORM. Testes por domínio abaixo verificam as restrições
+funcionais do schema. A presença dessas estruturas não comprova implementação
+integral dos fluxos RN.
 
 ## Tabelas, colunas e constraints
 
@@ -741,5 +747,7 @@ Teste: [`test_weekly_slot_schema.py`](../../apps/api/tests/test_weekly_slot_sche
 
 ## Manutenção
 
-Atualizar modelos, migrações e testes junto do dicionário.
-As demais estruturas do desenho permanecem planejadas até sua migração.
+Atualizar schema, modelos, migração, diagramas e testes na mesma entrega.
+[Operação](operations.md) descreve provisionamento e comandos. Regras ficam na
+[referência funcional](../business/business-rules.md); progresso fica no plano,
+sem inserir acompanhamento de execução neste dicionário.

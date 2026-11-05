@@ -1,7 +1,9 @@
 # Banco de dados da agenda clínica
 
-Status: 26 tabelas com modelos ORM, Alembic até `0010_monthly_agenda_schema` e RLS administrativa: identidade e catálogo, planos e disponibilidades, rotina semanal, sessões e eventos, reposições, calendário, estruturas da agenda mensal.
-Demais estruturas e serviços clínicos continuam planejados.
+Status: schema PostgreSQL 18 implementado com 26 tabelas, modelos ORM e
+migrações Alembic até `0010_monthly_agenda_schema`. RLS administrativa, FKs
+compostas, exclusões e triggers protegem a persistência. Serviços clínicos,
+autenticação e geração de agenda permanecem planejados.
 
 ## Referências canônicas
 

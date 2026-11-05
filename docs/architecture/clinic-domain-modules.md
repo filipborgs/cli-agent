@@ -1,9 +1,10 @@
 # Módulos de persistência e negócio da clínica
 
-Persistência disponível: 26 tabelas com modelos ORM, Alembic até `0010_monthly_agenda_schema` e RLS administrativa: identidade e catálogo, planos e disponibilidades, rotina semanal, sessões e eventos, reposições, calendário, estruturas da agenda mensal.
-A tabela abaixo descreve a organização prevista e entregue; consulte o
-[dicionário](../database/schema.md) para o inventário implementado.
-Serviços clínicos além dos casos de uso iniciais do catálogo são planejados.
+A persistência disponível inclui `environment.py`, `settings.py`, `db/base.py`,
+engine síncrono, Alembic e 26 tabelas mapeadas. Todos os pacotes ORM abaixo
+existem; serviços clínicos de planejamento, calendário e agenda continuam
+planejados. Casos de uso iniciais do catálogo seguem a
+[arquitetura de aplicação](application-architecture.md).
 
 ## Limites por domínio
 
@@ -53,7 +54,8 @@ verifica métodos e inferência estática. Imports da API/health continuam sem e
 `create_engine(database_url: str) -> Engine` cria conexões síncronas,
 sem sessões/transações de tenant. `Settings` separa URL runtime da administrativa;
 Alembic exige somente a administrativa. `Base: DeclarativeBase` centraliza a
-metadata; `db/models/registry.py` importa explicitamente os modelos já entregues para manter a metadata coerente com as migrações. Seeds/limpeza administrativos
+metadata; `db/models/registry.py` importa explicitamente os modelos de identidade, catálogo, planejamento,
+calendário e agenda para manter a metadata coerente com as migrações. Seeds/limpeza administrativos
 ficam em testes; o runtime não contorna RLS. Contratos/evidência:
 [`test_database.py`](../../apps/api/tests/test_database.py),
 [`test_settings.py`](../../apps/api/tests/test_settings.py) e
@@ -80,8 +82,7 @@ módulo proprietário. `Clinic`/`Room` ficam em `catalog/facilities.py`;
 `Patient`/`Therapist` em `people.py`; participações em `affiliations.py` e
 habilitações em `specialties.py`.
 
-Modelos adicionais de `planning`, `calendar` e `scheduling` são entregues
-conforme o inventário do dicionário; descrevem somente persistência.
+Modelos de `planning`, `calendar` e `scheduling` descrevem somente persistência.
 As migrações são snapshots independentes dos modelos atuais. RLS, funções e
 triggers são criados pelas migrações. A FK ORM de `Appointment` para
 `ReplacementDue` usa `use_alter=True`; a referência inversa aponta para a
@@ -90,5 +91,5 @@ sessão original. A migração resolve explicitamente a ordem de criação/remo�
 [Dicionário](../database/schema.md) liga classe → migração → RN → teste e detalha
 os locks FOR SHARE de integridade e as exclusões GiST. Não há sincronização
 automática de dívida, geração de sessões ou auditoria por esses modelos.
-Testes de schema por domínio e `test_model_registry.py` verificam os modelos
-entregues; auditoria transversal adicional permanece planejada.
+Paridade ORM/schema e round-trip são verificados em `test_migrations.py`;
+`test_schema_isolation.py` carrega classes ORM e exercita isolamento e FKs.

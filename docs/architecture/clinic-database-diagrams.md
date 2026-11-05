@@ -1,8 +1,9 @@
 # Diagramas do banco de dados da clínica
 
-Status: 26 tabelas com modelos ORM, Alembic até `0010_monthly_agenda_schema` e RLS administrativa: identidade e catálogo, planos e disponibilidades, rotina semanal, sessões e eventos, reposições, calendário, estruturas da agenda mensal.
-Os diagramas incluem estruturas ainda planejadas; o
-[dicionário](../database/schema.md) distingue o schema entregue.
+Status: estruturas de persistência implementadas até
+`0010_monthly_agenda_schema`; os fluxos de negócio desenhados continuam
+planejados. Nomes físicos singulares, campos e constraints estão no
+[dicionário](../database/schema.md).
 
 Representação visual do [desenho aprovado do banco](../superpowers/specs/2026-10-09-clinic-database-design.md).
 Referência funcional: [documentação de negócio](../business/README.md).

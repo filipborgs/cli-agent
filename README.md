@@ -4,10 +4,11 @@ Fundacao tecnica para uma aplicacao de clinicas. O produto futuro coordenara ate
 
 ## Escopo atual
 
-SPA React, API FastAPI, containers e persistência PostgreSQL.
-Disponível: 26 tabelas com modelos ORM, Alembic até `0010_monthly_agenda_schema` e RLS administrativa: identidade e catálogo, planos e disponibilidades, rotina semanal, sessões e eventos, reposições, calendário, estruturas da agenda mensal.
-Demais estruturas e serviços clínicos, autenticação e startup persistente
-continuam planejados.
+SPA React, API FastAPI, containers, qualidade automatizada, CI e fundação
+PostgreSQL 18/Alembic com 26 tabelas, modelos ORM, RLS administrativa e testes
+reais descartáveis. Existem casos de uso iniciais de catálogo. Autenticação,
+serviços clínicos de agenda e startup persistente do banco continuam planejados.
+O escopo de negócio e o desenho inicial do banco estão documentados e aprovados.
 
 ## Documentacao
 

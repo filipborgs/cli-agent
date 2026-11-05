@@ -1,7 +1,8 @@
 # Negócio: agenda de atendimentos da clínica
 
-Status: desenho aprovado. Persistência disponível: 26 tabelas com modelos ORM, Alembic até `0010_monthly_agenda_schema` e RLS administrativa: identidade e catálogo, planos e disponibilidades, rotina semanal, sessões e eventos, reposições, calendário, estruturas da agenda mensal.
-Fluxos clínicos e demais estruturas do desenho continuam planejados.
+Status: definição aprovada em 2026-10-09. A persistência dos conceitos está
+implementada no [schema](../database/schema.md), com casos de uso iniciais de
+catálogo. Os fluxos clínicos de agenda e reposição continuam planejados.
 
 ## Objetivo
 

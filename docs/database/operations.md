@@ -1,7 +1,8 @@
 # Operação do banco de dados
 
 A infraestrutura usa PostgreSQL 18, papéis separados, Alembic e testes reais.
-O schema disponível contém 26 tabelas com modelos ORM, Alembic até `0010_monthly_agenda_schema` e RLS administrativa: identidade e catálogo, planos e disponibilidades, rotina semanal, sessões e eventos, reposições, calendário, estruturas da agenda mensal. Compose persistente de desenvolvimento,
+O schema e os modelos ORM cobrem 26 tabelas, com RLS administrativa e migrações
+até `0010_monthly_agenda_schema`. Compose persistente de desenvolvimento,
 serviço `migrate`, integração de startup e autenticação continuam planejados.
 Veja o [schema](schema.md).
 
@@ -140,12 +141,27 @@ atual. Alembic carrega o registro ORM; revisar qualquer autogenerate manualmente
 políticas, funções, triggers e algumas expressões de índices/exclusões precisam
 de operações explícitas e não são reconstruídos apenas pela metadata.
 
-### Verificação do schema
+### Verificação de migrações e isolamento
 
-Use `make test-api` ou filtre pelos testes `test_*_schema.py` já presentes.
-O runner valida as migrações em banco descartável e remove seus volumes.
-A auditoria transversal de todas as estruturas será acrescentada após as
-migrações restantes. Serviços de negócio e startup persistente são planejados.
+```bash
+PYTEST_ARGS='apps/api/tests/test_migrations.py apps/api/tests/test_model_registry.py' make test-api
+PYTEST_ARGS='apps/api/tests/test_schema_isolation.py' make test-api
+```
+
+O primeiro comando verifica round-trip de toda a cadeia e equivalência entre
+modelos e banco. O segundo cobre DML por tenant, identidades inativas e FKs
+compostas com migrator para não confundir a proteção de FK com RLS.
+Testes de reservas concorrentes usam duas conexões/transações independentes.
+O downgrade de reposições remove explicitamente a FK da tentativa antes de
+remover a dívida, resolvendo o ciclo de referências com a sessão original.
+
+`clinic_has_admin_access(uuid)` é SECURITY INVOKER e depende das políticas de
+identidade para exigir tenant, usuário e participação administrativa ativos.
+As chaves `app.tenant_id` e `app.user_id` devem ser locais à transação. O banco
+não autentica a identidade informada nessas chaves: a borda da aplicação deve
+fornecer identidade autorizada. Nenhum endpoint clínico é publicado por essa
+infraestrutura. A duração/frequência, as origens e os estados aceitos são
+validados estruturalmente; decisões e transições não são executadas pelo banco.
 
 `make check`, `make test`, `make build` e `make smoke` validam a entrega
 transversal. Smoke ainda comprova o contrato HTTP/containers existente; não

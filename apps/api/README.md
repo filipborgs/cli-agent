@@ -15,7 +15,10 @@ O runner exporta `DATABASE_URL` runtime e `MIGRATION_DATABASE_URL` administrativ
 aplica migrations nas fixtures e sempre remove o volume. Pytest direto requer
 essas URLs e um banco descartável provisionado; não há skip silencioso.
 
-Persistência entregue: 26 tabelas com modelos ORM, Alembic até `0010_monthly_agenda_schema` e RLS administrativa: identidade e catálogo, planos e disponibilidades, rotina semanal, sessões e eventos, reposições, calendário, estruturas da agenda mensal.
-Demais estruturas e serviços clínicos continuam planejados.
-Consulte [operação](../../docs/database/operations.md) e o
-[dicionário](../../docs/database/schema.md) para contratos e migrações.
+Persistência entregue: 26 tabelas com modelos SQLAlchemy e Alembic até
+`0010_monthly_agenda_schema`, RLS administrativa, FKs compostas, exclusões de
+reservas e triggers de integridade. Casos de uso iniciais do catálogo existem;
+serviços clínicos de agenda, autenticação e startup persistente do banco ainda
+não estão disponíveis. Consulte [operação do banco](../../docs/database/operations.md)
+e o [dicionário físico](../../docs/database/schema.md) para bootstrap, comandos,
+modelos, constraints e testes por domínio.

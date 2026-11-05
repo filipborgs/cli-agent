@@ -2,9 +2,10 @@
 
 O navegador acessa o web em 8080. Nginx entrega a SPA e encaminha `/api` para FastAPI em `api:8000`. `GET /api/health` retorna `{"status":"ok"}` e prova o caminho completo.
 
-O web depende apenas do contrato HTTP da API. Persistência disponível:
-26 tabelas com modelos ORM, Alembic até `0010_monthly_agenda_schema` e RLS administrativa: identidade e catálogo, planos e disponibilidades, rotina semanal, sessões e eventos, reposições, calendário, estruturas da agenda mensal.
-Demais estruturas, autenticação e serviços clínicos continuam planejados.
+O web depende apenas do contrato HTTP gerado pela API. A API possui fundação
+PostgreSQL/Alembic com engine síncrono, 26 tabelas mapeadas em SQLAlchemy,
+FKs compostas, RLS administrativa e exclusões de reservas. Casos de uso iniciais
+do catálogo existem; autenticação e serviços clínicos de agenda são planejados.
 
 O [desenho da agenda e do banco](../superpowers/specs/2026-10-09-clinic-database-design.md)
 esta aprovado; startup persistente PostgreSQL e servicos de negocio continuam planejados. Consulte o

@@ -43,15 +43,68 @@ plano inserem dados diretamente por SQL/ORM, sem depender de serviços clínicos
 
 ## Estado da branch em 2026-11-04
 
-Branch de execução: `feat/clinic-database-schema`, baseada em `52f1a6d`.
-O usuário autorizou os oito commits incrementais em 2026-11-04. Este snapshot
-inclui identidade e catálogo, planos e disponibilidades, rotina semanal, sessões e eventos, reposições, calendário, estruturas da agenda mensal: 26 tabelas, head `0010_monthly_agenda_schema`.
-As demais etapas continuam planejadas até seus respectivos incrementos.
-Não há autorização de push ou merge.
+Branch de execução: `feat/clinic-database-schema`, criada a partir de `52f1a6d`.
+As entregas abaixo foram registradas em oito commits incrementais autorizados
+pelo usuário. Não há push ou merge desta entrega.
 
-Evidência de verificação: suíte final previamente aprovada: 180 testes API, 9 web; check/build/smoke com saída 0; sem nova execução, conforme solicitado.
-A implementação foi previamente revisada; regressões e auditorias transversais
-são incorporadas nos incrementos correspondentes.
+| Entrega | Estado atual | Evidência |
+| --- | --- | --- |
+| Fundação e identidade | Implementadas e revalidadas | Revisões existentes `0001_identity`, `0002_tenant_isolation`; defaults ORM alinhados |
+| Catálogo | Schema e ORM completos | `0003_catalog` preservada; nova `0004_catalog_integrity` |
+| Planejamento e rotina | Implementados | `0005_treatment_planning`, `0006_weekly_slots` |
+| Sessões e reposições | Implementadas | `0007_appointments`, `0008_replacement_schema` |
+| Calendário e agenda mensal | Estruturas implementadas | `0009_calendar_schema`, `0010_monthly_agenda_schema` |
+| Documentação | Atualizada | Dicionário físico com 26 tabelas, operação, diagramas, arquitetura e índices |
+| Revisão independente | Correção aplicada e verificada | Falha REPEATABLE READ reproduzida; regressão verde com FK declarativa |
+
+As seis tabelas iniciais de catálogo foram completadas com associações, campos
+comuns, FKs compostas e RLS administrativa. `catalog/entities.py` foi dividido
+nos módulos proprietários. O adaptador existente teve apenas seus imports
+atualizados; nenhum caso de uso ou serviço clínico novo foi criado.
+
+Uma coluna gerada `replacement_due.original_origin = 'routine'` e uma FK para
+a identidade da sessão incluindo sua origem impedem transformar a origem em
+tentativa, inclusive sob snapshot antigo. Os triggers continuam complementares.
+Esse ajuste resolve a falha encontrada pela revisão independente.
+
+### Evidência de execução
+
+- Baseline: 62 testes da API aprovados.
+- Catálogo: 17 testes falharam pelas estruturas ausentes; primeira suíte verde
+  com 79 testes aprovados.
+- Planejamento/agenda/calendário/reposições: 27 testes falharam por schema
+  ausente e passaram após as migrações.
+- Auditoria: defaults ORM de identidade e erro de autorização do trigger foram
+  corrigidos após falha; 54 testes de paridade/isolamento passaram.
+- Qualificações, locks e unicidade concorrente de tentativas: 52 testes
+  específicos aprovados com as coberturas adicionais.
+- Revisão: regressão REPEATABLE READ falhou antes da FK discriminadora;
+  60 testes de reposição, migração e isolamento passaram após a correção.
+- Paridade das definições SQL: 6 testes de migrações aprovados, incluindo
+  checks, exclusões e predicados de índices normalizados pelo PostgreSQL.
+- Verificação final: `make check`, `make test`, `make build` e `make smoke`
+  concluídos com código 0. `make test`: 180 testes da API e 9 do web aprovados.
+- `git diff --check` aprovado e links locais conferidos em 12 documentos.
+- Smoke cobre o contrato HTTP e os containers existentes; a validação do
+  schema vem dos testes PostgreSQL, sem anunciar startup persistente da API.
+
+### Decisões de execução
+
+- Usar a branch nova nesta pasta, conforme autorização do usuário.
+- Preservar migrações existentes e adicionar sete revisões encadeadas.
+- Adicionar discriminador gerado e chave única para proteger a origem sob
+  REPEATABLE READ; custo físico: uma coluna gerada e um índice único de suporte.
+- Comparar definições SQL em tabelas temporárias para cobrir a paridade exigida;
+  esse DDL é exclusivo dos testes.
+- Manter índices separados para tentativas `scheduled` e `completed`, conforme
+  contrato. Reconciliação dos estados e impedimento de ações de negócio após
+  quitação dependem de serviços futuros.
+- Autenticação, algoritmos de agenda, aplicação de calendário, transições e
+  auditoria automática permanecem fora do escopo desta entrega.
+
+
+
+Evidência utilizada para os commits: suíte final previamente aprovada: 180 testes API, 9 web; check/build/smoke com saída 0; sem nova execução, conforme solicitado.
 
 ## Restrições gerais
 
@@ -302,16 +355,16 @@ e índices correspondentes.
 **Arquivos:** `apps/api/tests/test_migrations.py`, `test_model_registry.py`,
 runner/bootstrap e documentação operacional quando necessário.
 
-- [ ] Criar teste base → head → base → head em banco exclusivo; conferir
+- [x] Criar teste base → head → base → head em banco exclusivo; conferir
   tabelas, FKs cíclicas, políticas, grants, exclusões, triggers e índices.
-- [ ] Ampliar o teste de equivalência além dos nomes de tabelas: comparar tipos,
+- [x] Ampliar o teste de equivalência além dos nomes de tabelas: comparar tipos,
   nulabilidade, defaults, PKs, FKs, checks e uniques ORM com o banco; verificar
   explicitamente objetos PostgreSQL mantidos somente pelas migrações, como RLS
   e triggers. `configure_mappers()` e registro repetido não devem falhar.
-- [ ] Testar round-trip ORM das entidades e runtime sem permissão de migrar,
+- [x] Testar round-trip ORM das entidades e runtime sem permissão de migrar,
   alterar schema ou assumir papel migrator. Usar conexão runtime direta para
   comprovar negação de DDL, sem depender de caso de uso.
-- [ ] Executar a suíte da API com `make test-api`. Antes de concluir mudanças
+- [x] Executar a suíte da API com `make test-api`. Antes de concluir mudanças
   transversais de infraestrutura, executar `make check`, `make test`,
   `make build` e `make smoke`, registrando resultados e bloqueios reais.
 
@@ -320,14 +373,14 @@ runner/bootstrap e documentação operacional quando necessário.
 **Arquivos:** `docs/database/schema.md`, `operations.md`, `README.md`, diagramas,
 mapa de modelos, índices humano/agentes e README da API afetados.
 
-- [ ] Documentar cada tabela entregue com tipos, nulabilidade, defaults,
+- [x] Documentar cada tabela entregue com tipos, nulabilidade, defaults,
   PKs/FKs, checks, índices, exclusões, triggers, RLS e migração proprietária.
-- [ ] Conferir diagramas contra schema e ORM, mantendo nomes físicos coerentes.
-- [ ] Documentar bootstrap, papéis, URLs separadas e comandos de
+- [x] Conferir diagramas contra schema e ORM, mantendo nomes físicos coerentes.
+- [x] Documentar bootstrap, papéis, URLs separadas e comandos de
   upgrade/downgrade e testes que realmente existem.
-- [ ] Distinguir schema disponível de fluxos ainda não implementados;
+- [x] Distinguir schema disponível de fluxos ainda não implementados;
   não anunciar endpoints, serviços ou geração de agenda por existir uma tabela.
-- [ ] Conferir links locais, executar `git diff --check` e registrar a
+- [x] Conferir links locais, executar `git diff --check` e registrar a
   verificação final neste plano. Preparar commits por incremento autorizado.
 
 ## Critério de conclusão

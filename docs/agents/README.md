@@ -6,9 +6,11 @@ Depois use a tabela para ler somente as referências pertinentes à tarefa.
 
 ## Escopo e fontes
 
-Persistência disponível: 26 tabelas com modelos ORM, Alembic até `0010_monthly_agenda_schema` e RLS administrativa: identidade e catálogo, planos e disponibilidades, rotina semanal, sessões e eventos, reposições, calendário, estruturas da agenda mensal.
-Demais estruturas do desenho continuam planejadas. Autenticação, serviços
-clínicos e startup persistente da API permanecem planejados.
+A aplicação usa React/FastAPI, containers e CI. A persistência oferece
+PostgreSQL 18, Alembic até `0010_monthly_agenda_schema`, 26 tabelas e modelos
+SQLAlchemy, FKs compostas, RLS administrativa e exclusões de reservas.
+Os testes usam banco descartável. Autenticação, serviços clínicos, geração de
+agenda e integração persistente no startup continuam planejados.
 
 Código e migrations descrevem o comportamento disponível; regras de negócio e
 desenho conceitual definem os contratos do produto. O dicionário e o mapa de
