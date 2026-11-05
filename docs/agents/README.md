@@ -25,7 +25,7 @@ Decisões novas do usuário devem ser refletidas nas referências pertinentes.
 | Alterar comportamento | [Regras RN](../business/business-rules.md) e [fluxos](../business/workflows.md) afetados |
 | Persistência, schema e migração | [Contexto do banco](database-context.md), [dicionário](../database/schema.md) e migrations correspondentes |
 | Organização de classes e serviços | [Mapa de módulos](../architecture/clinic-domain-modules.md) |
-| Relações e reposição | [Diagramas](../architecture/clinic-database-diagrams.md) e RN-021 a RN-026 |
+| Relações e reposição | [Diagramas](../architecture/clinic-database-diagrams.md), [ER físico](../architecture/clinic-database-er.md) e RN-021 a RN-026 |
 | Configuração e operação | [Operação do banco](../database/operations.md), [workflow](../development/workflow.md), Makefile e Compose atuais |
 | Limites arquiteturais | [Arquitetura](../architecture/system-overview.md) e [ADRs](../decisions/0001-lightweight-polyglot-monorepo.md) |
 

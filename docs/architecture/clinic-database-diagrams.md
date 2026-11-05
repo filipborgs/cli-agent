@@ -8,6 +8,9 @@ planejados. Nomes físicos singulares, campos e constraints estão no
 Representação visual do [desenho aprovado do banco](../superpowers/specs/2026-10-09-clinic-database-design.md).
 Referência funcional: [documentação de negócio](../business/README.md).
 
+O [modelo entidade-relacionamento físico](clinic-database-er.md) mostra as
+26 tabelas implementadas com chaves e cardinalidades.
+
 Os diagramas são conceituais: os nomes representam entidades, não DDL definitivo.
 As visões detalhadas mostram cardinalidades e tabelas associativas. As entidades
 repetidas em várias visões representam o mesmo cadastro.

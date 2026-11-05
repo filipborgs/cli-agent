@@ -10,6 +10,7 @@ autenticação e geração de agenda permanecem planejados.
 - [Negócio](../business/README.md) e [regras RN-001 a RN-026](../business/business-rules.md): finalidade e comportamento esperado.
 - [Desenho aprovado](../superpowers/specs/2026-10-09-clinic-database-design.md): entidades, relações, integridade e decisões aprovadas.
 - [Diagramas](../architecture/clinic-database-diagrams.md): cardinalidades e ciclo da reposição.
+- [Modelo entidade-relacionamento físico](../architecture/clinic-database-er.md): 26 tabelas, chaves e cardinalidades do schema implementado.
 - [Dicionário físico](schema.md): nomes de tabelas, campos, estados e constraints.
 - [Operação](operations.md): provisionamento, papéis, migrações e testes.
 - [Módulos de persistência e domínio](../architecture/clinic-domain-modules.md): proprietários das entidades e serviços.
