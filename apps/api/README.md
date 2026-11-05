@@ -15,7 +15,10 @@ O runner exporta `DATABASE_URL` runtime e `MIGRATION_DATABASE_URL` administrativ
 aplica migrations nas fixtures e sempre remove o volume. Pytest direto requer
 essas URLs e um banco descartável provisionado; não há skip silencioso.
 
-Fundação entregue: settings, engine síncrono, Base compartilhada, Alembic e
-`0001_identity` com RLS fail-closed. ORM, autorização e serviços clínicos ainda
+Persistência entregue: 26 tabelas com modelos SQLAlchemy e Alembic até
+`0010_monthly_agenda_schema`, RLS administrativa, FKs compostas, exclusões de
+reservas e triggers de integridade. Casos de uso iniciais do catálogo existem;
+serviços clínicos de agenda, autenticação e startup persistente do banco ainda
 não estão disponíveis. Consulte [operação do banco](../../docs/database/operations.md)
-para bootstrap compartilhado, configuração e comandos Alembic.
+e o [dicionário físico](../../docs/database/schema.md) para bootstrap, comandos,
+modelos, constraints e testes por domínio.

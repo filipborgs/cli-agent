@@ -3,8 +3,9 @@
 O navegador acessa o web em 8080. Nginx entrega a SPA e encaminha `/api` para FastAPI em `api:8000`. `GET /api/health` retorna `{"status":"ok"}` e prova o caminho completo.
 
 O web depende apenas do contrato HTTP gerado pela API. A API possui fundação
-PostgreSQL/Alembic com engine síncrono e tabelas de identidade protegidas por RLS
-fail-closed. Autorização por tenant, ORM e serviços clínicos ainda são planejados.
+PostgreSQL/Alembic com engine síncrono, 26 tabelas mapeadas em SQLAlchemy,
+FKs compostas, RLS administrativa e exclusões de reservas. Casos de uso iniciais
+do catálogo existem; autenticação e serviços clínicos de agenda são planejados.
 
 O [desenho da agenda e do banco](../superpowers/specs/2026-10-09-clinic-database-design.md)
 esta aprovado; startup persistente PostgreSQL e servicos de negocio continuam planejados. Consulte o

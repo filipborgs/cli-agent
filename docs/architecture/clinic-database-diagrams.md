@@ -1,9 +1,15 @@
 # Diagramas do banco de dados da clínica
 
-Status: diagramas aprovados em 2026-10-09, ainda sem implementação.
+Status: estruturas de persistência implementadas até
+`0010_monthly_agenda_schema`; os fluxos de negócio desenhados continuam
+planejados. Nomes físicos singulares, campos e constraints estão no
+[dicionário](../database/schema.md).
 
 Representação visual do [desenho aprovado do banco](../superpowers/specs/2026-10-09-clinic-database-design.md).
 Referência funcional: [documentação de negócio](../business/README.md).
+
+O [modelo entidade-relacionamento físico](clinic-database-er.md) mostra as
+26 tabelas implementadas com chaves e cardinalidades.
 
 Os diagramas são conceituais: os nomes representam entidades, não DDL definitivo.
 As visões detalhadas mostram cardinalidades e tabelas associativas. As entidades
@@ -174,7 +180,7 @@ erDiagram
 
 Cada `BLOQUEIO_PESSOA` pertence **a um paciente ou a um terapeuta, nunca aos dois**.
 As duas relações opcionais precisam dessa restrição adicional de exclusividade;
-o mecanismo físico será definido na implementação. O bloqueio vale em todas as
+o mecanismo físico é definido na implementação. O bloqueio vale em todas as
 clínicas do tenant.
 
 O fechamento da clínica impede a geração de sessões. Não cria reposição de

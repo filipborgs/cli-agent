@@ -1,6 +1,8 @@
 # Negócio: agenda de atendimentos da clínica
 
-Status: definição inicial aprovada em 2026-10-09. Funcionalidades ainda não implementadas.
+Status: definição aprovada em 2026-10-09. A persistência dos conceitos está
+implementada no [schema](../database/schema.md), com casos de uso iniciais de
+catálogo. Os fluxos clínicos de agenda e reposição continuam planejados.
 
 ## Objetivo
 
@@ -22,7 +24,7 @@ reposições que ainda precisam acontecer.
   tradução dessas regras para o modelo de dados e decisões técnicas.
 - [Diagramas do banco](../architecture/clinic-database-diagrams.md): visão geral,
   entidades, relacionamentos e ciclo de reposição.
-- [Referência do banco](../database/README.md): dicionário físico e operação planejados.
+- [Referência do banco](../database/README.md): dicionário físico e operação.
 - [Índice para agentes](../agents/README.md): leitura direcionada e fontes canônicas.
 
 Esta pasta é a referência funcional do projeto. O desenho técnico detalha como

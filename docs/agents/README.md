@@ -6,10 +6,11 @@ Depois use a tabela para ler somente as referências pertinentes à tarefa.
 
 ## Escopo e fontes
 
-A aplicação usa React/FastAPI, containers e CI. A persistência oferece PostgreSQL,
-Alembic e tabelas de identidade com RLS que nega acesso na ausência de políticas
-permissivas. Os testes usam banco descartável. O contexto autorizado de tenant,
-os modelos ORM e os serviços clínicos ainda não estão disponíveis.
+A aplicação usa React/FastAPI, containers e CI. A persistência oferece
+PostgreSQL 18, Alembic até `0010_monthly_agenda_schema`, 26 tabelas e modelos
+SQLAlchemy, FKs compostas, RLS administrativa e exclusões de reservas.
+Os testes usam banco descartável. Autenticação, serviços clínicos, geração de
+agenda e integração persistente no startup continuam planejados.
 
 Código e migrations descrevem o comportamento disponível; regras de negócio e
 desenho conceitual definem os contratos do produto. O dicionário e o mapa de
@@ -24,7 +25,7 @@ Decisões novas do usuário devem ser refletidas nas referências pertinentes.
 | Alterar comportamento | [Regras RN](../business/business-rules.md) e [fluxos](../business/workflows.md) afetados |
 | Persistência, schema e migração | [Contexto do banco](database-context.md), [dicionário](../database/schema.md) e migrations correspondentes |
 | Organização de classes e serviços | [Mapa de módulos](../architecture/clinic-domain-modules.md) |
-| Relações e reposição | [Diagramas](../architecture/clinic-database-diagrams.md) e RN-021 a RN-026 |
+| Relações e reposição | [Diagramas](../architecture/clinic-database-diagrams.md), [ER físico](../architecture/clinic-database-er.md) e RN-021 a RN-026 |
 | Configuração e operação | [Operação do banco](../database/operations.md), [workflow](../development/workflow.md), Makefile e Compose atuais |
 | Limites arquiteturais | [Arquitetura](../architecture/system-overview.md) e [ADRs](../decisions/0001-lightweight-polyglot-monorepo.md) |
 

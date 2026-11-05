@@ -1,153 +1,753 @@
 # Dicionário físico do banco
 
-Status: `tenant`, `user` e `user_tenant` implementadas pela migração
-`0001_identity`; demais tabelas e modelos ORM continuam planejados. A origem é o
-[desenho conceitual aprovado](../superpowers/specs/2026-10-09-clinic-database-design.md).
-
-Esta é a referência canônica dos nomes e restrições físicos da persistência.
-Após implementar cada migração, acrescentar aqui a identificação da migração,
-o módulo proprietário, regras RN e testes de evidência das tabelas entregues.
+Status: 26 tabelas de aplicação e modelos ORM implementados; head Alembic
+`0010_monthly_agenda_schema`. As tabelas sustentam os contratos aprovados;
+serviços clínicos e geração automática continuam planejados.
 
 ## Convenções
 
-- IDs UUID gerados pela aplicação com `uuid4()`; não dependem de extensão.
-- `tenant_id UUID NOT NULL` em tabelas de negócio, exceto `tenant` e `user`.
-- Tabelas referenciáveis têm `PRIMARY KEY(id)` e `UNIQUE(tenant_id, id)`.
-- Toda FK de negócio inclui `tenant_id`; referências à clínica incluem o tenant.
-- Autores de eventos/decisões referenciam `(tenant_id, user_id)` em `user_tenant`,
-  preservando a participação histórica mesmo se o acesso for inativado.
-- Associação sem identidade própria usa PK composta por tenant e seus dois IDs.
-- `created_at`/`updated_at TIMESTAMPTZ` nas entidades mutáveis; eventos históricos
-  têm `recorded_at TIMESTAMPTZ`. Timestamps de alteração são atualizados no serviço.
-- `active BOOLEAN NOT NULL DEFAULT true` nos cadastros; histórico não usa cascade delete.
-- Durações e frequência são inteiros positivos; duração em minutos.
-- Vigência é `valid_from DATE NOT NULL`, `valid_until DATE NULL`, final inclusivo.
-  Para exclusão de sobreposição, converter para `daterange` semiaberto equivalente.
-- Janelas semanais: `weekday SMALLINT` de 0 (segunda) a 6 (domingo),
-  `start_time TIME`, `end_time TIME`, início menor que fim. Janelas atravessando
-  meia-noite são divididas em dois dias.
-- Instantes concretos usam `starts_at`/`ends_at TIMESTAMPTZ` e intervalos `[)`.
-- Estados são `TEXT` com `CHECK`, para permitir evolução por migração explícita.
-- Referências a registros inativos continuam válidas historicamente; atividade,
-  vigência e habilitação são verificadas para novos agendamentos.
+- IDs UUID fornecidos pelo chamador, sem default SQL. A identidade de pessoas
+  é por organização; nomes de pacientes/terapeutas não são chaves únicas.
+- Tabelas físicas singulares. Referências clínicas incluem `tenant_id`;
+  entidades referenciáveis têm UNIQUE `(tenant_id, id)`.
+- Associações usam PK composta. Autores referenciam a participação histórica
+  `(tenant_id, user_id)`; FKs usam NO ACTION, sem apagar histórico em cascata.
+- `created_at`/`updated_at` têm default `now()`. `updated_at` não tem atualização
+  automática: o escritor deve atualizá-lo. Eventos usam `recorded_at`.
+- Instantes concretos usam TIMESTAMPTZ e reservas usam intervalos `[)`.
+  Janelas recorrentes usam TIME local, dia 0–6 (segunda–domingo) e vigência DATE
+  final inclusiva; `daterange(valid_from, valid_until + 1, '[)')` representa
+  a mesma vigência para exclusão. Final NULL significa sem limite.
+- Duração/frequência são positivas. Nomes normalizados são fornecidos pelo
+  escritor após trim/casefold; a unicidade é garantida pelo banco, a
+  transformação de texto não é executada pelo schema.
+- Estados persistidos usam TEXT com CHECK, detalhado por tabela abaixo.
+- RLS e triggers são objetos das migrações, não de `Base.metadata.create_all()`.
+  Provisionar sempre com Alembic. O ORM não cria políticas ou funções SQL.
 
-## Tabelas e campos específicos
+## Segurança e integridade transacional
 
-Os campos comuns acima são implícitos. Toda referência abaixo é uma FK.
-A lista contém 26 tabelas; cada uma será detalhada e verificada na sua entrega.
+Todas as tabelas têm RLS ENABLE/FORCE. Runtime possui somente SELECT em `tenant`,
+`user` e `user_tenant`, sem DDL, propriedade ou BYPASSRLS. As tabelas de negócio
+recebem SELECT/INSERT/UPDATE/DELETE, sujeitos à política `<tabela>_admin`, com
+`USING` e `WITH CHECK` em `clinic_has_admin_access(tenant_id)`.
 
-| Tabela | Campos/associações específicos |
-| --- | --- |
-| `tenant` | `id`, `name`, `active` |
-| `user` | `id`, `name`, `active`; sem senha nesta entrega |
-| `user_tenant` | `user_id`, `tenant_id`, `role='admin'`, `active` |
-| `clinics` | `name`, `timezone`, `default_duration_minutes` |
-| `patients`, `therapists` | `name` |
-| `specialties` | `name`, `normalized_name`; normalizado único por tenant |
-| `patient_clinics` | `patient_id`, `clinic_id`, `active` |
-| `therapist_clinics` | `therapist_id`, `clinic_id`, `active` |
-| `therapist_specialties` | `therapist_id`, `specialty_id`, `active` |
-| `rooms` | `clinic_id`, `name`, `normalized_name`; normalizado único por clínica |
-| `room_specialties` | `room_id`, `specialty_id`, `active` |
-| `treatment_plans` | `patient_id`, `therapist_id`, `specialty_id`, `sessions_per_week`, `duration_minutes NULL`, vigência |
-| `treatment_plan_clinics` | `treatment_plan_id`, `clinic_id`, `active` |
-| `patient_availabilities` | `patient_id`, `clinic_id`, janela semanal, vigência |
-| `therapist_availabilities` | `therapist_id`, `clinic_id`, janela semanal, vigência |
-| `clinic_hours` | `clinic_id`, janela semanal, vigência |
-| `weekly_slots` | `treatment_plan_id`, `clinic_id`, `room_id`, `weekday`, `start_time`, `duration_minutes`, vigência |
-| `clinic_closures` | `clinic_id`, intervalo concreto, `reason`, `created_by` |
-| `person_blocks` | `patient_id NULL`, `therapist_id NULL`, intervalo concreto, `reason`, `created_by`; exatamente uma pessoa |
-| `monthly_agendas` | `clinic_id`, `month DATE` sempre dia 1; único por tenant/clínica/mês |
-| `generation_runs` | `monthly_agenda_id`, `started_at`, `completed_at NULL`, `status`, `parameters JSONB` |
-| `appointments` | `treatment_plan_id`, `clinic_id`, `room_id`, `patient_id`, `therapist_id`, `specialty_id`, intervalo concreto, `duration_minutes`, `origin`, `status`, `weekly_slot_id NULL`, `occurrence_date NULL`, `replacement_due_id NULL`, `manually_adjusted`, `replacement_decision` |
-| `appointment_events` | `appointment_id`, `actor_id NULL`, `recorded_at`, `kind`, `reason`, `before JSONB`, `after JSONB` |
-| `generation_deficits` | `generation_run_id`, `treatment_plan_id`, `week_start DATE`, `missing_count`, `reason_code`, `details JSONB` |
-| `replacement_dues` | `original_appointment_id`, `treatment_plan_id`, `reason`, `status`, `decided_by NULL`, `decided_at NULL`, `closed_reason NULL` |
+A função é SQL STABLE SECURITY INVOKER, com search_path explícito, EXECUTE
+revogado de PUBLIC e concedido a `clinic_runtime`. Ela exige tenant igual a
+`app.tenant_id` e uma linha visível em `tenant`. A política `tenant_self` exige
+organização ativa, usuário ativo e participação administrativa ativa do
+`app.user_id`. `user_self` expõe o próprio usuário; `membership_self` suas
+participações. O contexto é local à transação. Autenticar a identidade e
+selecionar o contexto autorizado continuam sendo responsabilidades da aplicação.
 
-## Identidade entregue — `0001_identity`
+As revisões `0002_tenant_isolation` e `0004_catalog_integrity` definem as
+políticas finais de identidade. A `0003_catalog` criou as seis tabelas iniciais
+do catálogo; `0004_catalog_integrity` completa FKs, campos comuns, associações
+e políticas. Revisões existentes são preservadas.
 
-Definição física: infraestrutura de persistência da API, em
-[`0001_identity.py`](../../apps/api/migrations/versions/0001_identity.py).
-Os modelos de identidade e o registro ORM ainda não existem; a `Base.metadata`
-compartilhada existe, mas ainda não contém entidades.
+A coluna gerada `replacement_due.original_origin` é sempre `routine`. Uma FK
+inclui esse discriminador e referencia a identidade da sessão com sua origem;
+a sessão não pode se tornar tentativa enquanto for origem de dívida. Essa
+proteção declarativa também vale em REPEATABLE READ com snapshot anterior à
+criação da dívida. O índice único `uq_appointment_origin_identity` dá suporte
+à FK. O escritor não fornece o valor da coluna gerada.
 
-| Tabela | Colunas (tipo PostgreSQL, todas NOT NULL) |
-| --- | --- |
-| `tenant`, `user` | `id UUID` sem default SQL; `name TEXT`; `active BOOLEAN DEFAULT true`; `created_at TIMESTAMPTZ DEFAULT now()`; `updated_at TIMESTAMPTZ DEFAULT now()` |
-| `user_tenant` | `tenant_id UUID`; `user_id UUID`; `role TEXT DEFAULT 'admin'`; `active BOOLEAN DEFAULT true`; `created_at TIMESTAMPTZ DEFAULT now()`; `updated_at TIMESTAMPTZ DEFAULT now()` |
+### Triggers
 
-- PKs/índices: `pk_tenant(id)`, `pk_user(id)` e
-  `pk_user_tenant(tenant_id, user_id)`. A PK composta também atende às futuras
-  referências de autores por `(tenant_id, user_id)`; não há índices adicionais.
-- FKs: `fk_user_tenant_tenant_id` → `tenant(id)` e
-  `fk_user_tenant_user_id` → `user(id)`, ambas com `NO ACTION`, sem cascade.
-- `ck_user_tenant_admin_role`: `role = 'admin'` (RN-003).
-- IDs são fornecidos pela aplicação. `updated_at` não possui trigger; futuras
-  alterações de serviço devem atualizá-lo explicitamente.
-- `btree_gist` é instalado para as exclusões futuras; não há exclusões nesta revisão.
-- Todas as três tabelas pertencem a `clinic_migrator`, têm RLS habilitada e
-  forçada, **sem políticas permissivas**. O runtime possui grants de DML, mas
-  não vê/altera linhas e não consegue inserir. Isso é a fundação fail-closed de
-   RN-001/RN-003. A autorização por tenant ainda não está implementada.
-- `alembic_version` é bookkeeping, sem acesso runtime. Downgrade para `base`
-  remove as três tabelas e `btree_gist`; não remove os papéis/esquema bootstrap.
-- Evidência: [`test_database.py`](../../apps/api/tests/test_database.py), incluindo
-  upgrade/downgrade/upgrade, separação de credenciais e negação real de DML runtime.
+- `appointment_resources` → `validate_appointment_resources()`: em nova reserva
+  ou mudança de recursos/intervalo de uma reserva, exige plano/clínica habilitados,
+  pessoas e cadastros ativos, participações na clínica e especialidades do
+  terapeuta e sala. Obtém locks FOR SHARE nos registros consultados; uma
+  inativação concorrente espera a transação da reserva terminar. Não invalida
+  histórico ao inativar um cadastro nem revalida recursos numa simples mudança
+  entre estados que já reservavam o mesmo intervalo.
+- `replacement_origin` → `validate_replacement_origin()`: a origem de uma dívida
+  deve ser sessão `routine` do mesmo vínculo; a leitura bloqueia a sessão
+  original com FOR SHARE. Contexto runtime sem autorização é negado antes da
+  validação de origem.
+- `preserve_replacement_origin` → função homônima: impede converter uma sessão
+  original referenciada em tentativa de reposição.
 
-## Isolamento administrativo entregue — `0002_tenant_isolation`
+Funções de trigger usam PL/pgSQL e search_path explícito. Não sincronizam
+estados de dívida/sessão, não criam eventos automaticamente e não consultam
+fechamentos/disponibilidade. Essas operações de negócio ainda precisam de
+serviços próprios. Exclusões GiST e índices únicos são a defesa final contra
+reservas e tentativas concorrentes.
 
-Os modelos `Tenant`, `User` e `UserTenant` pertencem aos módulos de identidade
-e são registrados explicitamente antes de Alembic usar `Base.metadata`. O
-runtime só recebe `SELECT` nessas tabelas. RLS é forçada: `users` expõe apenas
-o usuário de `app.user_id`, `user_tenants` apenas suas participações e
-`tenants` apenas o tenant de `app.tenant_id` com participação administrativa
-ativa. As chaves de contexto são locais à transação; sem contexto não há linhas
-visíveis. `clinic_runtime` não recebe DDL, BYPASSRLS ou escrita de identidades.
+## Evidências
 
-## Estados e categorias
+[Testes de migrações e paridade ORM](../../apps/api/tests/test_migrations.py)
+conferem base → head → base → head, tipos, defaults, nulabilidade, PKs/FKs,
+uniques e definições de checks, exclusões e índices, além do inventário de triggers.
+[Testes de isolamento](../../apps/api/tests/test_schema_isolation.py) exercitam
+DML e FKs entre tenants em todas as tabelas de negócio, identidade inativa e
+leitura por classes ORM. Testes por domínio abaixo verificam as restrições
+funcionais do schema. A presença dessas estruturas não comprova implementação
+integral dos fluxos RN.
 
-| Campo/conceito | Valores |
-| --- | --- |
-| Origem da sessão | `routine`, `replacement` |
-| Estado da sessão | `scheduled`, `completed`, `cancelled`, `patient_absent`, `therapist_absent`, `dispensed` |
-| Decisão de reposição | `not_applicable`, `awaiting_decision`, `granted`, `denied` |
-| Estado da dívida | `pending`, `scheduled`, `completed`, `closed` |
-| Execução de geração | `running`, `completed`, `partial`, `failed` |
-| Motivo de déficit | `no_common_availability`, `no_compatible_room`, `resource_conflict` |
+## Tabelas, colunas e constraints
 
-Os IDs duplicados em `appointments` permitem exclusões por recurso; uma FK
-composta para o plano garante que paciente, terapeuta e especialidade correspondam
-ao vínculo. Uma FK composta `(tenant_id, clinic_id, room_id)` garante a unidade
-da sala. Uma tentativa também referencia dívida do mesmo vínculo.
+Tipos abaixo são PostgreSQL. `NULL` indica campo opcional; `—` indica ausência
+de default SQL. PKs e constraints sem nome explícito recebem o nome padrão do
+PostgreSQL. `alembic_version` é controle da ferramenta e não recebe acesso runtime.
 
-## Constraints obrigatórias
+### `appointment`
 
-- `btree_gist`; exclusão de vigências sobrepostas por combinação
-  paciente–terapeuta–especialidade em `treatment_plans` (RN-005).
-- Exclusões de intervalos para `appointments` por `(tenant_id, patient_id)`,
-  `(tenant_id, therapist_id)` e `(tenant_id, room_id)` (RN-012).
-- Reservam recursos apenas `scheduled` e `completed`. Faltas, cancelamentos e
-  dispensas preservam histórico sem impedir reutilização do horário (RN-016).
-- Unicidade `(tenant_id, weekly_slot_id, occurrence_date)` quando há rotina de
-  origem, independentemente do novo horário ou estado da sessão (RN-014).
-- Uma dívida por sessão original; índice único parcial de tentativa `scheduled`
-  e outro de tentativa `completed` por dívida (RN-024).
-- Tentativa tem `replacement_due_id`; rotina não tem. Ocorrência de rotina possui
-  `weekly_slot_id` e `occurrence_date`. Uma tentativa não cria nova dívida.
-- `replacement_dues` só referencia sessão original de rotina, validado por trigger.
-- Triggers de integridade para especialidade do terapeuta, clínica habilitada e
-  sala compatível em novos agendamentos; não revalidar atividade de todo o histórico
-  quando um cadastro for inativado (RN-002, RN-004, RN-026).
-- Operações de serviço bloqueiam registros do plano, participantes, sala e dívida
-  em ordem determinística; mudanças nas respectivas habilitações usam os mesmos
-  locks. Exclusões e índices únicos são a defesa final contra concorrência.
-- RLS e FKs compostas isolam organizações; a identidade autorizada determina
-  o contexto por transação. O papel runtime não possui BYPASSRLS (RN-001, RN-003).
+ORM: [`Appointment`](../../apps/api/src/clinic_api/db/models/scheduling/appointments.py).
+Migração: [`0007_appointments`](../../apps/api/migrations/versions/0007_appointments.py) e `0008_replacement_schema`. Regras relacionadas: RN-011, RN-012, RN-014 a RN-016.
+Teste: [`test_appointment_schema.py`](../../apps/api/tests/test_appointment_schema.py).
 
-## Critério de atualização
+| Coluna | Tipo | Nulabilidade | Default SQL |
+| --- | --- | --- | --- |
+| `id` | `UUID` | NOT NULL | `—` |
+| `tenant_id` | `UUID` | NOT NULL | `—` |
+| `created_at` | `TIMESTAMP WITH TIME ZONE` | NOT NULL | `now()` |
+| `updated_at` | `TIMESTAMP WITH TIME ZONE` | NOT NULL | `now()` |
+| `treatment_plan_id` | `UUID` | NOT NULL | `—` |
+| `clinic_id` | `UUID` | NOT NULL | `—` |
+| `room_id` | `UUID` | NOT NULL | `—` |
+| `patient_id` | `UUID` | NOT NULL | `—` |
+| `therapist_id` | `UUID` | NOT NULL | `—` |
+| `specialty_id` | `UUID` | NOT NULL | `—` |
+| `starts_at` | `TIMESTAMP WITH TIME ZONE` | NOT NULL | `—` |
+| `ends_at` | `TIMESTAMP WITH TIME ZONE` | NOT NULL | `—` |
+| `duration_minutes` | `INTEGER` | NOT NULL | `—` |
+| `origin` | `TEXT` | NOT NULL | `—` |
+| `status` | `TEXT` | NOT NULL | `'scheduled'` |
+| `weekly_slot_id` | `UUID` | NULL | `—` |
+| `occurrence_date` | `DATE` | NULL | `—` |
+| `manually_adjusted` | `BOOLEAN` | NOT NULL | `false` |
+| `replacement_decision` | `TEXT` | NOT NULL | `'not_applicable'` |
+| `replacement_due_id` | `UUID` | NULL | `—` |
 
-O detalhamento final por tabela deve informar: tipo e nulabilidade de cada
-coluna, valor padrão, chaves, índices, checks, exclusões, políticas RLS,
-migração e arquivo proprietário, regras RN, testes e estado de implementação.
-Conferir com `Base.metadata` e migrations; não inferir entrega pela presença
-do nome neste dicionário planejado.
+- `CONSTRAINT ck_appointment_duration CHECK (duration_minutes > 0)`.
+- `CONSTRAINT ck_appointment_interval CHECK (starts_at < ends_at)`.
+- `CONSTRAINT ck_appointment_origin CHECK (origin IN ('routine', 'replacement'))`.
+- `CONSTRAINT ck_appointment_origin_fields CHECK ((origin = 'routine' AND weekly_slot_id IS NOT NULL AND occurrence_date IS NOT NULL AND replacement_due_id IS NULL) OR (origin = 'replacement' AND weekly_slot_id IS NULL AND occurrence_date IS NULL AND replacement_due_id IS NOT NULL))`.
+- `CONSTRAINT ck_appointment_replacement_decision CHECK (replacement_decision IN ('not_applicable', 'awaiting_decision', 'granted', 'denied'))`.
+- `CONSTRAINT ck_appointment_status CHECK (status IN ('scheduled', 'completed', 'cancelled', 'patient_absent', 'therapist_absent', 'dispensed'))`.
+- `CONSTRAINT ex_appointment_patient EXCLUDE USING gist (tenant_id WITH =, patient_id WITH =, tstzrange(starts_at, ends_at, '[)') WITH &&) WHERE (status IN ('scheduled', 'completed'))`.
+- `CONSTRAINT ex_appointment_room EXCLUDE USING gist (tenant_id WITH =, room_id WITH =, tstzrange(starts_at, ends_at, '[)') WITH &&) WHERE (status IN ('scheduled', 'completed'))`.
+- `CONSTRAINT ex_appointment_therapist EXCLUDE USING gist (tenant_id WITH =, therapist_id WITH =, tstzrange(starts_at, ends_at, '[)') WITH &&) WHERE (status IN ('scheduled', 'completed'))`.
+- `CONSTRAINT fk_appointment_clinic FOREIGN KEY(tenant_id, clinic_id) REFERENCES clinic (tenant_id, id)`.
+- `CONSTRAINT fk_appointment_patient FOREIGN KEY(tenant_id, patient_id) REFERENCES patient (tenant_id, id)`.
+- `CONSTRAINT fk_appointment_plan_identity FOREIGN KEY(tenant_id, treatment_plan_id, patient_id, therapist_id, specialty_id) REFERENCES treatment_plan (tenant_id, id, patient_id, therapist_id, specialty_id)`.
+- `CONSTRAINT fk_appointment_replacement FOREIGN KEY(tenant_id, replacement_due_id, treatment_plan_id) REFERENCES replacement_due (tenant_id, id, treatment_plan_id)`.
+- `CONSTRAINT fk_appointment_room FOREIGN KEY(tenant_id, room_id) REFERENCES room (tenant_id, id)`.
+- `CONSTRAINT fk_appointment_room_clinic FOREIGN KEY(tenant_id, clinic_id, room_id) REFERENCES room (tenant_id, clinic_id, id)`.
+- `CONSTRAINT fk_appointment_slot_plan FOREIGN KEY(tenant_id, weekly_slot_id, treatment_plan_id) REFERENCES weekly_slot (tenant_id, id, treatment_plan_id)`.
+- `CONSTRAINT fk_appointment_specialty FOREIGN KEY(tenant_id, specialty_id) REFERENCES specialty (tenant_id, id)`.
+- `CONSTRAINT fk_appointment_tenant FOREIGN KEY(tenant_id) REFERENCES tenant (id)`.
+- `CONSTRAINT fk_appointment_therapist FOREIGN KEY(tenant_id, therapist_id) REFERENCES therapist (tenant_id, id)`.
+- `CONSTRAINT fk_appointment_treatment_plan FOREIGN KEY(tenant_id, treatment_plan_id) REFERENCES treatment_plan (tenant_id, id)`.
+- `CONSTRAINT fk_appointment_treatment_plan_clinic FOREIGN KEY(tenant_id, treatment_plan_id, clinic_id) REFERENCES treatment_plan_clinic (tenant_id, treatment_plan_id, clinic_id)`.
+- `CONSTRAINT fk_appointment_weekly_slot FOREIGN KEY(tenant_id, weekly_slot_id) REFERENCES weekly_slot (tenant_id, id)`.
+- `PRIMARY KEY (id)`.
+- `CONSTRAINT uq_appointment_origin_identity UNIQUE (tenant_id, id, treatment_plan_id, origin)`.
+- `CONSTRAINT uq_appointment_tenant_id_id UNIQUE (tenant_id, id)`.
+- `CONSTRAINT uq_appointment_tenant_id_id_treatment_plan_id UNIQUE (tenant_id, id, treatment_plan_id)`.
+- `CREATE UNIQUE INDEX uq_appointment_due_completed ON appointment (tenant_id, replacement_due_id) WHERE origin = 'replacement' AND status = 'completed'`.
+- `CREATE UNIQUE INDEX uq_appointment_due_scheduled ON appointment (tenant_id, replacement_due_id) WHERE origin = 'replacement' AND status = 'scheduled'`.
+- `CREATE UNIQUE INDEX uq_appointment_occurrence ON appointment (tenant_id, weekly_slot_id, occurrence_date) WHERE weekly_slot_id IS NOT NULL`.
+
+### `appointment_event`
+
+ORM: [`AppointmentEvent`](../../apps/api/src/clinic_api/db/models/scheduling/appointments.py).
+Migração: [`0007_appointments`](../../apps/api/migrations/versions/0007_appointments.py). Regras relacionadas: RN-011, RN-012, RN-014 a RN-016.
+Teste: [`test_appointment_schema.py`](../../apps/api/tests/test_appointment_schema.py).
+
+| Coluna | Tipo | Nulabilidade | Default SQL |
+| --- | --- | --- | --- |
+| `id` | `UUID` | NOT NULL | `—` |
+| `tenant_id` | `UUID` | NOT NULL | `—` |
+| `appointment_id` | `UUID` | NOT NULL | `—` |
+| `actor_id` | `UUID` | NULL | `—` |
+| `recorded_at` | `TIMESTAMP WITH TIME ZONE` | NOT NULL | `now()` |
+| `kind` | `TEXT` | NOT NULL | `—` |
+| `reason` | `TEXT` | NULL | `—` |
+| `before` | `JSONB` | NOT NULL | `'{}'::jsonb` |
+| `after` | `JSONB` | NOT NULL | `'{}'::jsonb` |
+
+- `CONSTRAINT fk_appointment_event_appointment FOREIGN KEY(tenant_id, appointment_id) REFERENCES appointment (tenant_id, id)`.
+- `CONSTRAINT fk_appointment_event_tenant FOREIGN KEY(tenant_id) REFERENCES tenant (id)`.
+- `CONSTRAINT fk_appointment_event_user_tenant FOREIGN KEY(tenant_id, actor_id) REFERENCES user_tenant (tenant_id, user_id)`.
+- `PRIMARY KEY (id)`.
+- `CONSTRAINT uq_appointment_event_tenant_id_id UNIQUE (tenant_id, id)`.
+
+### `clinic`
+
+ORM: [`Clinic`](../../apps/api/src/clinic_api/db/models/catalog/facilities.py).
+Migração: `0003_catalog` → [`0004_catalog_integrity`](../../apps/api/migrations/versions/0004_catalog_integrity.py). Regras relacionadas: RN-001 a RN-004, RN-026.
+Teste: [`test_catalog_schema.py`](../../apps/api/tests/test_catalog_schema.py).
+
+| Coluna | Tipo | Nulabilidade | Default SQL |
+| --- | --- | --- | --- |
+| `name` | `TEXT` | NOT NULL | `—` |
+| `timezone` | `TEXT` | NOT NULL | `—` |
+| `default_duration_minutes` | `INTEGER` | NOT NULL | `—` |
+| `active` | `BOOLEAN` | NOT NULL | `true` |
+| `id` | `UUID` | NOT NULL | `—` |
+| `tenant_id` | `UUID` | NOT NULL | `—` |
+| `created_at` | `TIMESTAMP WITH TIME ZONE` | NOT NULL | `now()` |
+| `updated_at` | `TIMESTAMP WITH TIME ZONE` | NOT NULL | `now()` |
+
+- `CONSTRAINT ck_clinic_duration CHECK (default_duration_minutes > 0)`.
+- `FOREIGN KEY(tenant_id) REFERENCES tenant (id)`.
+- `PRIMARY KEY (id)`.
+- `CONSTRAINT uq_clinic_tenant_id UNIQUE (tenant_id, id)`.
+
+### `clinic_closure`
+
+ORM: [`ClinicClosure`](../../apps/api/src/clinic_api/db/models/calendar/closures.py).
+Migração: [`0009_calendar_schema`](../../apps/api/migrations/versions/0009_calendar_schema.py). Regras relacionadas: RN-017 a RN-020.
+Teste: [`test_calendar_schema.py`](../../apps/api/tests/test_calendar_schema.py).
+
+| Coluna | Tipo | Nulabilidade | Default SQL |
+| --- | --- | --- | --- |
+| `id` | `UUID` | NOT NULL | `—` |
+| `tenant_id` | `UUID` | NOT NULL | `—` |
+| `created_at` | `TIMESTAMP WITH TIME ZONE` | NOT NULL | `now()` |
+| `updated_at` | `TIMESTAMP WITH TIME ZONE` | NOT NULL | `now()` |
+| `clinic_id` | `UUID` | NOT NULL | `—` |
+| `starts_at` | `TIMESTAMP WITH TIME ZONE` | NOT NULL | `—` |
+| `ends_at` | `TIMESTAMP WITH TIME ZONE` | NOT NULL | `—` |
+| `reason` | `TEXT` | NOT NULL | `—` |
+| `created_by` | `UUID` | NOT NULL | `—` |
+
+- `CONSTRAINT ck_clinic_closure_interval CHECK (starts_at < ends_at)`.
+- `CONSTRAINT fk_clinic_closure_clinic FOREIGN KEY(tenant_id, clinic_id) REFERENCES clinic (tenant_id, id)`.
+- `CONSTRAINT fk_clinic_closure_tenant FOREIGN KEY(tenant_id) REFERENCES tenant (id)`.
+- `CONSTRAINT fk_clinic_closure_user_tenant FOREIGN KEY(tenant_id, created_by) REFERENCES user_tenant (tenant_id, user_id)`.
+- `PRIMARY KEY (id)`.
+- `CONSTRAINT uq_clinic_closure_tenant_id_id UNIQUE (tenant_id, id)`.
+- `CREATE INDEX ix_clinic_closure_interval ON clinic_closure USING gist (tenant_id, tstzrange(starts_at, ends_at, '[)'))`.
+
+### `clinic_hours`
+
+ORM: [`ClinicHours`](../../apps/api/src/clinic_api/db/models/planning/availability.py).
+Migração: [`0005_treatment_planning`](../../apps/api/migrations/versions/0005_treatment_planning.py). Regras relacionadas: RN-008.
+Teste: [`test_planning_schema.py`](../../apps/api/tests/test_planning_schema.py).
+
+| Coluna | Tipo | Nulabilidade | Default SQL |
+| --- | --- | --- | --- |
+| `id` | `UUID` | NOT NULL | `—` |
+| `tenant_id` | `UUID` | NOT NULL | `—` |
+| `created_at` | `TIMESTAMP WITH TIME ZONE` | NOT NULL | `now()` |
+| `updated_at` | `TIMESTAMP WITH TIME ZONE` | NOT NULL | `now()` |
+| `clinic_id` | `UUID` | NOT NULL | `—` |
+| `weekday` | `SMALLINT` | NOT NULL | `—` |
+| `start_time` | `TIME WITHOUT TIME ZONE` | NOT NULL | `—` |
+| `end_time` | `TIME WITHOUT TIME ZONE` | NOT NULL | `—` |
+| `valid_from` | `DATE` | NOT NULL | `—` |
+| `valid_until` | `DATE` | NULL | `—` |
+
+- `CONSTRAINT ck_clinic_hours_validity CHECK (valid_until IS NULL OR valid_until >= valid_from)`.
+- `CONSTRAINT ck_clinic_hours_weekday CHECK (weekday BETWEEN 0 AND 6)`.
+- `CONSTRAINT ck_clinic_hours_window CHECK (start_time < end_time)`.
+- `CONSTRAINT fk_clinic_hours_clinic FOREIGN KEY(tenant_id, clinic_id) REFERENCES clinic (tenant_id, id)`.
+- `CONSTRAINT fk_clinic_hours_tenant FOREIGN KEY(tenant_id) REFERENCES tenant (id)`.
+- `PRIMARY KEY (id)`.
+- `CONSTRAINT uq_clinic_hours_tenant_id_id UNIQUE (tenant_id, id)`.
+
+### `generation_deficit`
+
+ORM: [`GenerationDeficit`](../../apps/api/src/clinic_api/db/models/scheduling/agendas.py).
+Migração: [`0010_monthly_agenda_schema`](../../apps/api/migrations/versions/0010_monthly_agenda_schema.py). Regras relacionadas: RN-013, RN-014.
+Teste: [`test_agenda_schema.py`](../../apps/api/tests/test_agenda_schema.py).
+
+| Coluna | Tipo | Nulabilidade | Default SQL |
+| --- | --- | --- | --- |
+| `id` | `UUID` | NOT NULL | `—` |
+| `tenant_id` | `UUID` | NOT NULL | `—` |
+| `created_at` | `TIMESTAMP WITH TIME ZONE` | NOT NULL | `now()` |
+| `updated_at` | `TIMESTAMP WITH TIME ZONE` | NOT NULL | `now()` |
+| `generation_run_id` | `UUID` | NOT NULL | `—` |
+| `treatment_plan_id` | `UUID` | NOT NULL | `—` |
+| `week_start` | `DATE` | NOT NULL | `—` |
+| `missing_count` | `INTEGER` | NOT NULL | `—` |
+| `reason_code` | `TEXT` | NOT NULL | `—` |
+| `details` | `JSONB` | NOT NULL | `'{}'::jsonb` |
+
+- `CONSTRAINT ck_generation_deficit_missing CHECK (missing_count > 0)`.
+- `CONSTRAINT ck_generation_deficit_reason_code CHECK (reason_code IN ('no_common_availability', 'no_compatible_room', 'resource_conflict'))`.
+- `CONSTRAINT ck_generation_deficit_week CHECK (EXTRACT(ISODOW FROM week_start) = 1)`.
+- `CONSTRAINT fk_generation_deficit_generation_run FOREIGN KEY(tenant_id, generation_run_id) REFERENCES generation_run (tenant_id, id)`.
+- `CONSTRAINT fk_generation_deficit_tenant FOREIGN KEY(tenant_id) REFERENCES tenant (id)`.
+- `CONSTRAINT fk_generation_deficit_treatment_plan FOREIGN KEY(tenant_id, treatment_plan_id) REFERENCES treatment_plan (tenant_id, id)`.
+- `PRIMARY KEY (id)`.
+- `CONSTRAINT uq_generation_deficit_tenant_id_id UNIQUE (tenant_id, id)`.
+
+### `generation_run`
+
+ORM: [`GenerationRun`](../../apps/api/src/clinic_api/db/models/scheduling/agendas.py).
+Migração: [`0010_monthly_agenda_schema`](../../apps/api/migrations/versions/0010_monthly_agenda_schema.py). Regras relacionadas: RN-013, RN-014.
+Teste: [`test_agenda_schema.py`](../../apps/api/tests/test_agenda_schema.py).
+
+| Coluna | Tipo | Nulabilidade | Default SQL |
+| --- | --- | --- | --- |
+| `id` | `UUID` | NOT NULL | `—` |
+| `tenant_id` | `UUID` | NOT NULL | `—` |
+| `created_at` | `TIMESTAMP WITH TIME ZONE` | NOT NULL | `now()` |
+| `updated_at` | `TIMESTAMP WITH TIME ZONE` | NOT NULL | `now()` |
+| `monthly_agenda_id` | `UUID` | NOT NULL | `—` |
+| `started_at` | `TIMESTAMP WITH TIME ZONE` | NOT NULL | `now()` |
+| `completed_at` | `TIMESTAMP WITH TIME ZONE` | NULL | `—` |
+| `status` | `TEXT` | NOT NULL | `'running'` |
+| `parameters` | `JSONB` | NOT NULL | `'{}'::jsonb` |
+
+- `CONSTRAINT ck_generation_run_status CHECK (status IN ('running', 'completed', 'partial', 'failed'))`.
+- `CONSTRAINT ck_generation_run_times CHECK (completed_at IS NULL OR completed_at >= started_at)`.
+- `CONSTRAINT fk_generation_run_monthly_agenda FOREIGN KEY(tenant_id, monthly_agenda_id) REFERENCES monthly_agenda (tenant_id, id)`.
+- `CONSTRAINT fk_generation_run_tenant FOREIGN KEY(tenant_id) REFERENCES tenant (id)`.
+- `PRIMARY KEY (id)`.
+- `CONSTRAINT uq_generation_run_tenant_id_id UNIQUE (tenant_id, id)`.
+
+### `monthly_agenda`
+
+ORM: [`MonthlyAgenda`](../../apps/api/src/clinic_api/db/models/scheduling/agendas.py).
+Migração: [`0010_monthly_agenda_schema`](../../apps/api/migrations/versions/0010_monthly_agenda_schema.py). Regras relacionadas: RN-013, RN-014.
+Teste: [`test_agenda_schema.py`](../../apps/api/tests/test_agenda_schema.py).
+
+| Coluna | Tipo | Nulabilidade | Default SQL |
+| --- | --- | --- | --- |
+| `id` | `UUID` | NOT NULL | `—` |
+| `tenant_id` | `UUID` | NOT NULL | `—` |
+| `created_at` | `TIMESTAMP WITH TIME ZONE` | NOT NULL | `now()` |
+| `updated_at` | `TIMESTAMP WITH TIME ZONE` | NOT NULL | `now()` |
+| `clinic_id` | `UUID` | NOT NULL | `—` |
+| `month` | `DATE` | NOT NULL | `—` |
+
+- `CONSTRAINT ck_monthly_agenda_month CHECK (EXTRACT(DAY FROM month) = 1)`.
+- `CONSTRAINT fk_monthly_agenda_clinic FOREIGN KEY(tenant_id, clinic_id) REFERENCES clinic (tenant_id, id)`.
+- `CONSTRAINT fk_monthly_agenda_tenant FOREIGN KEY(tenant_id) REFERENCES tenant (id)`.
+- `PRIMARY KEY (id)`.
+- `CONSTRAINT uq_monthly_agenda_tenant_id_clinic_id_month UNIQUE (tenant_id, clinic_id, month)`.
+- `CONSTRAINT uq_monthly_agenda_tenant_id_id UNIQUE (tenant_id, id)`.
+
+### `patient`
+
+ORM: [`Patient`](../../apps/api/src/clinic_api/db/models/catalog/people.py).
+Migração: `0003_catalog` → [`0004_catalog_integrity`](../../apps/api/migrations/versions/0004_catalog_integrity.py). Regras relacionadas: RN-001 a RN-004, RN-026.
+Teste: [`test_catalog_schema.py`](../../apps/api/tests/test_catalog_schema.py).
+
+| Coluna | Tipo | Nulabilidade | Default SQL |
+| --- | --- | --- | --- |
+| `name` | `TEXT` | NOT NULL | `—` |
+| `active` | `BOOLEAN` | NOT NULL | `true` |
+| `id` | `UUID` | NOT NULL | `—` |
+| `tenant_id` | `UUID` | NOT NULL | `—` |
+| `created_at` | `TIMESTAMP WITH TIME ZONE` | NOT NULL | `now()` |
+| `updated_at` | `TIMESTAMP WITH TIME ZONE` | NOT NULL | `now()` |
+
+- `FOREIGN KEY(tenant_id) REFERENCES tenant (id)`.
+- `PRIMARY KEY (id)`.
+- `CONSTRAINT uq_patient_tenant_id UNIQUE (tenant_id, id)`.
+
+### `patient_availability`
+
+ORM: [`PatientAvailability`](../../apps/api/src/clinic_api/db/models/planning/availability.py).
+Migração: [`0005_treatment_planning`](../../apps/api/migrations/versions/0005_treatment_planning.py). Regras relacionadas: RN-008.
+Teste: [`test_planning_schema.py`](../../apps/api/tests/test_planning_schema.py).
+
+| Coluna | Tipo | Nulabilidade | Default SQL |
+| --- | --- | --- | --- |
+| `id` | `UUID` | NOT NULL | `—` |
+| `tenant_id` | `UUID` | NOT NULL | `—` |
+| `created_at` | `TIMESTAMP WITH TIME ZONE` | NOT NULL | `now()` |
+| `updated_at` | `TIMESTAMP WITH TIME ZONE` | NOT NULL | `now()` |
+| `clinic_id` | `UUID` | NOT NULL | `—` |
+| `patient_id` | `UUID` | NOT NULL | `—` |
+| `weekday` | `SMALLINT` | NOT NULL | `—` |
+| `start_time` | `TIME WITHOUT TIME ZONE` | NOT NULL | `—` |
+| `end_time` | `TIME WITHOUT TIME ZONE` | NOT NULL | `—` |
+| `valid_from` | `DATE` | NOT NULL | `—` |
+| `valid_until` | `DATE` | NULL | `—` |
+
+- `CONSTRAINT ck_patient_availability_validity CHECK (valid_until IS NULL OR valid_until >= valid_from)`.
+- `CONSTRAINT ck_patient_availability_weekday CHECK (weekday BETWEEN 0 AND 6)`.
+- `CONSTRAINT ck_patient_availability_window CHECK (start_time < end_time)`.
+- `CONSTRAINT fk_patient_availability_clinic FOREIGN KEY(tenant_id, clinic_id) REFERENCES clinic (tenant_id, id)`.
+- `CONSTRAINT fk_patient_availability_patient FOREIGN KEY(tenant_id, patient_id) REFERENCES patient (tenant_id, id)`.
+- `CONSTRAINT fk_patient_availability_tenant FOREIGN KEY(tenant_id) REFERENCES tenant (id)`.
+- `PRIMARY KEY (id)`.
+- `CONSTRAINT uq_patient_availability_tenant_id_id UNIQUE (tenant_id, id)`.
+
+### `patient_clinic`
+
+ORM: [`PatientClinic`](../../apps/api/src/clinic_api/db/models/catalog/affiliations.py).
+Migração: `0003_catalog` → [`0004_catalog_integrity`](../../apps/api/migrations/versions/0004_catalog_integrity.py). Regras relacionadas: RN-001 a RN-004, RN-026.
+Teste: [`test_catalog_schema.py`](../../apps/api/tests/test_catalog_schema.py).
+
+| Coluna | Tipo | Nulabilidade | Default SQL |
+| --- | --- | --- | --- |
+| `tenant_id` | `UUID` | NOT NULL | `—` |
+| `patient_id` | `UUID` | NOT NULL | `—` |
+| `clinic_id` | `UUID` | NOT NULL | `—` |
+| `active` | `BOOLEAN` | NOT NULL | `true` |
+| `created_at` | `TIMESTAMP WITH TIME ZONE` | NOT NULL | `now()` |
+| `updated_at` | `TIMESTAMP WITH TIME ZONE` | NOT NULL | `now()` |
+
+- `FOREIGN KEY(tenant_id) REFERENCES tenant (id)`.
+- `CONSTRAINT fk_patient_clinic_clinic FOREIGN KEY(tenant_id, clinic_id) REFERENCES clinic (tenant_id, id)`.
+- `CONSTRAINT fk_patient_clinic_patient FOREIGN KEY(tenant_id, patient_id) REFERENCES patient (tenant_id, id)`.
+- `PRIMARY KEY (tenant_id, patient_id, clinic_id)`.
+
+### `person_block`
+
+ORM: [`PersonBlock`](../../apps/api/src/clinic_api/db/models/calendar/person_blocks.py).
+Migração: [`0009_calendar_schema`](../../apps/api/migrations/versions/0009_calendar_schema.py). Regras relacionadas: RN-017 a RN-020.
+Teste: [`test_calendar_schema.py`](../../apps/api/tests/test_calendar_schema.py).
+
+| Coluna | Tipo | Nulabilidade | Default SQL |
+| --- | --- | --- | --- |
+| `id` | `UUID` | NOT NULL | `—` |
+| `tenant_id` | `UUID` | NOT NULL | `—` |
+| `created_at` | `TIMESTAMP WITH TIME ZONE` | NOT NULL | `now()` |
+| `updated_at` | `TIMESTAMP WITH TIME ZONE` | NOT NULL | `now()` |
+| `patient_id` | `UUID` | NULL | `—` |
+| `therapist_id` | `UUID` | NULL | `—` |
+| `starts_at` | `TIMESTAMP WITH TIME ZONE` | NOT NULL | `—` |
+| `ends_at` | `TIMESTAMP WITH TIME ZONE` | NOT NULL | `—` |
+| `reason` | `TEXT` | NOT NULL | `—` |
+| `created_by` | `UUID` | NOT NULL | `—` |
+
+- `CONSTRAINT ck_person_block_interval CHECK (starts_at < ends_at)`.
+- `CONSTRAINT ck_person_block_one_person CHECK ((patient_id IS NOT NULL) <> (therapist_id IS NOT NULL))`.
+- `CONSTRAINT fk_person_block_patient FOREIGN KEY(tenant_id, patient_id) REFERENCES patient (tenant_id, id)`.
+- `CONSTRAINT fk_person_block_tenant FOREIGN KEY(tenant_id) REFERENCES tenant (id)`.
+- `CONSTRAINT fk_person_block_therapist FOREIGN KEY(tenant_id, therapist_id) REFERENCES therapist (tenant_id, id)`.
+- `CONSTRAINT fk_person_block_user_tenant FOREIGN KEY(tenant_id, created_by) REFERENCES user_tenant (tenant_id, user_id)`.
+- `PRIMARY KEY (id)`.
+- `CONSTRAINT uq_person_block_tenant_id_id UNIQUE (tenant_id, id)`.
+- `CREATE INDEX ix_person_block_interval ON person_block USING gist (tenant_id, tstzrange(starts_at, ends_at, '[)'))`.
+
+### `replacement_due`
+
+ORM: [`ReplacementDue`](../../apps/api/src/clinic_api/db/models/scheduling/replacements.py).
+Migração: [`0008_replacement_schema`](../../apps/api/migrations/versions/0008_replacement_schema.py). Regras relacionadas: RN-021 a RN-026.
+Teste: [`test_replacement_schema.py`](../../apps/api/tests/test_replacement_schema.py).
+
+| Coluna | Tipo | Nulabilidade | Default SQL |
+| --- | --- | --- | --- |
+| `id` | `UUID` | NOT NULL | `—` |
+| `tenant_id` | `UUID` | NOT NULL | `—` |
+| `created_at` | `TIMESTAMP WITH TIME ZONE` | NOT NULL | `now()` |
+| `updated_at` | `TIMESTAMP WITH TIME ZONE` | NOT NULL | `now()` |
+| `original_origin` | `TEXT` | NOT NULL | `GENERATED ALWAYS AS ('routine') STORED` |
+| `original_appointment_id` | `UUID` | NOT NULL | `—` |
+| `treatment_plan_id` | `UUID` | NOT NULL | `—` |
+| `reason` | `TEXT` | NOT NULL | `—` |
+| `status` | `TEXT` | NOT NULL | `'pending'` |
+| `decided_by` | `UUID` | NULL | `—` |
+| `decided_at` | `TIMESTAMP WITH TIME ZONE` | NULL | `—` |
+| `closed_reason` | `TEXT` | NULL | `—` |
+
+- `CONSTRAINT ck_replacement_due_closure CHECK (status <> 'closed' OR (closed_reason IS NOT NULL AND length(trim(closed_reason)) > 0 AND decided_by IS NOT NULL))`.
+- `CONSTRAINT ck_replacement_due_decision CHECK ((decided_by IS NULL) = (decided_at IS NULL))`.
+- `CONSTRAINT ck_replacement_due_status CHECK (status IN ('pending', 'scheduled', 'completed', 'closed'))`.
+- `CONSTRAINT fk_replacement_due_appointment FOREIGN KEY(tenant_id, original_appointment_id) REFERENCES appointment (tenant_id, id)`.
+- `CONSTRAINT fk_replacement_due_original_plan FOREIGN KEY(tenant_id, original_appointment_id, treatment_plan_id, original_origin) REFERENCES appointment (tenant_id, id, treatment_plan_id, origin)`.
+- `CONSTRAINT fk_replacement_due_tenant FOREIGN KEY(tenant_id) REFERENCES tenant (id)`.
+- `CONSTRAINT fk_replacement_due_treatment_plan FOREIGN KEY(tenant_id, treatment_plan_id) REFERENCES treatment_plan (tenant_id, id)`.
+- `CONSTRAINT fk_replacement_due_user_tenant FOREIGN KEY(tenant_id, decided_by) REFERENCES user_tenant (tenant_id, user_id)`.
+- `PRIMARY KEY (id)`.
+- `CONSTRAINT uq_replacement_due_tenant_id_id UNIQUE (tenant_id, id)`.
+- `CONSTRAINT uq_replacement_due_tenant_id_id_treatment_plan_id UNIQUE (tenant_id, id, treatment_plan_id)`.
+- `CONSTRAINT uq_replacement_due_tenant_id_original_appointment_id UNIQUE (tenant_id, original_appointment_id)`.
+
+### `room`
+
+ORM: [`Room`](../../apps/api/src/clinic_api/db/models/catalog/facilities.py).
+Migração: `0003_catalog` → [`0004_catalog_integrity`](../../apps/api/migrations/versions/0004_catalog_integrity.py). Regras relacionadas: RN-001 a RN-004, RN-026.
+Teste: [`test_catalog_schema.py`](../../apps/api/tests/test_catalog_schema.py).
+
+| Coluna | Tipo | Nulabilidade | Default SQL |
+| --- | --- | --- | --- |
+| `clinic_id` | `UUID` | NOT NULL | `—` |
+| `name` | `TEXT` | NOT NULL | `—` |
+| `normalized_name` | `TEXT` | NOT NULL | `—` |
+| `active` | `BOOLEAN` | NOT NULL | `true` |
+| `id` | `UUID` | NOT NULL | `—` |
+| `tenant_id` | `UUID` | NOT NULL | `—` |
+| `created_at` | `TIMESTAMP WITH TIME ZONE` | NOT NULL | `now()` |
+| `updated_at` | `TIMESTAMP WITH TIME ZONE` | NOT NULL | `now()` |
+
+- `FOREIGN KEY(tenant_id) REFERENCES tenant (id)`.
+- `CONSTRAINT fk_room_clinic FOREIGN KEY(tenant_id, clinic_id) REFERENCES clinic (tenant_id, id)`.
+- `PRIMARY KEY (id)`.
+- `CONSTRAINT uq_room_clinic_id UNIQUE (tenant_id, clinic_id, id)`.
+- `CONSTRAINT uq_room_name UNIQUE (tenant_id, clinic_id, normalized_name)`.
+- `CONSTRAINT uq_room_tenant_id UNIQUE (tenant_id, id)`.
+
+### `room_specialty`
+
+ORM: [`RoomSpecialty`](../../apps/api/src/clinic_api/db/models/catalog/specialties.py).
+Migração: [`0004_catalog_integrity`](../../apps/api/migrations/versions/0004_catalog_integrity.py). Regras relacionadas: RN-001 a RN-004, RN-026.
+Teste: [`test_catalog_schema.py`](../../apps/api/tests/test_catalog_schema.py).
+
+| Coluna | Tipo | Nulabilidade | Default SQL |
+| --- | --- | --- | --- |
+| `tenant_id` | `UUID` | NOT NULL | `—` |
+| `room_id` | `UUID` | NOT NULL | `—` |
+| `specialty_id` | `UUID` | NOT NULL | `—` |
+| `active` | `BOOLEAN` | NOT NULL | `true` |
+| `created_at` | `TIMESTAMP WITH TIME ZONE` | NOT NULL | `now()` |
+| `updated_at` | `TIMESTAMP WITH TIME ZONE` | NOT NULL | `now()` |
+
+- `FOREIGN KEY(tenant_id) REFERENCES tenant (id)`.
+- `CONSTRAINT fk_room_specialty_room FOREIGN KEY(tenant_id, room_id) REFERENCES room (tenant_id, id)`.
+- `CONSTRAINT fk_room_specialty_specialty FOREIGN KEY(tenant_id, specialty_id) REFERENCES specialty (tenant_id, id)`.
+- `PRIMARY KEY (tenant_id, room_id, specialty_id)`.
+
+### `specialty`
+
+ORM: [`Specialty`](../../apps/api/src/clinic_api/db/models/catalog/specialties.py).
+Migração: `0003_catalog` → [`0004_catalog_integrity`](../../apps/api/migrations/versions/0004_catalog_integrity.py). Regras relacionadas: RN-001 a RN-004, RN-026.
+Teste: [`test_catalog_schema.py`](../../apps/api/tests/test_catalog_schema.py).
+
+| Coluna | Tipo | Nulabilidade | Default SQL |
+| --- | --- | --- | --- |
+| `name` | `TEXT` | NOT NULL | `—` |
+| `normalized_name` | `TEXT` | NOT NULL | `—` |
+| `active` | `BOOLEAN` | NOT NULL | `true` |
+| `id` | `UUID` | NOT NULL | `—` |
+| `tenant_id` | `UUID` | NOT NULL | `—` |
+| `created_at` | `TIMESTAMP WITH TIME ZONE` | NOT NULL | `now()` |
+| `updated_at` | `TIMESTAMP WITH TIME ZONE` | NOT NULL | `now()` |
+
+- `FOREIGN KEY(tenant_id) REFERENCES tenant (id)`.
+- `PRIMARY KEY (id)`.
+- `CONSTRAINT uq_specialty_name UNIQUE (tenant_id, normalized_name)`.
+- `CONSTRAINT uq_specialty_tenant_id UNIQUE (tenant_id, id)`.
+
+### `tenant`
+
+ORM: [`Tenant`](../../apps/api/src/clinic_api/db/models/identity/organization.py).
+Migração: [`0001_identity`](../../apps/api/migrations/versions/0001_identity.py). Regras relacionadas: RN-001, RN-003.
+Teste: [`test_database.py`](../../apps/api/tests/test_database.py).
+
+| Coluna | Tipo | Nulabilidade | Default SQL |
+| --- | --- | --- | --- |
+| `id` | `UUID` | NOT NULL | `—` |
+| `name` | `TEXT` | NOT NULL | `—` |
+| `active` | `BOOLEAN` | NOT NULL | `true` |
+| `created_at` | `TIMESTAMP WITH TIME ZONE` | NOT NULL | `now()` |
+| `updated_at` | `TIMESTAMP WITH TIME ZONE` | NOT NULL | `now()` |
+
+- `PRIMARY KEY (id)`.
+
+### `therapist`
+
+ORM: [`Therapist`](../../apps/api/src/clinic_api/db/models/catalog/people.py).
+Migração: `0003_catalog` → [`0004_catalog_integrity`](../../apps/api/migrations/versions/0004_catalog_integrity.py). Regras relacionadas: RN-001 a RN-004, RN-026.
+Teste: [`test_catalog_schema.py`](../../apps/api/tests/test_catalog_schema.py).
+
+| Coluna | Tipo | Nulabilidade | Default SQL |
+| --- | --- | --- | --- |
+| `name` | `TEXT` | NOT NULL | `—` |
+| `active` | `BOOLEAN` | NOT NULL | `true` |
+| `id` | `UUID` | NOT NULL | `—` |
+| `tenant_id` | `UUID` | NOT NULL | `—` |
+| `created_at` | `TIMESTAMP WITH TIME ZONE` | NOT NULL | `now()` |
+| `updated_at` | `TIMESTAMP WITH TIME ZONE` | NOT NULL | `now()` |
+
+- `FOREIGN KEY(tenant_id) REFERENCES tenant (id)`.
+- `PRIMARY KEY (id)`.
+- `CONSTRAINT uq_therapist_tenant_id UNIQUE (tenant_id, id)`.
+
+### `therapist_availability`
+
+ORM: [`TherapistAvailability`](../../apps/api/src/clinic_api/db/models/planning/availability.py).
+Migração: [`0005_treatment_planning`](../../apps/api/migrations/versions/0005_treatment_planning.py). Regras relacionadas: RN-008.
+Teste: [`test_planning_schema.py`](../../apps/api/tests/test_planning_schema.py).
+
+| Coluna | Tipo | Nulabilidade | Default SQL |
+| --- | --- | --- | --- |
+| `id` | `UUID` | NOT NULL | `—` |
+| `tenant_id` | `UUID` | NOT NULL | `—` |
+| `created_at` | `TIMESTAMP WITH TIME ZONE` | NOT NULL | `now()` |
+| `updated_at` | `TIMESTAMP WITH TIME ZONE` | NOT NULL | `now()` |
+| `clinic_id` | `UUID` | NOT NULL | `—` |
+| `therapist_id` | `UUID` | NOT NULL | `—` |
+| `weekday` | `SMALLINT` | NOT NULL | `—` |
+| `start_time` | `TIME WITHOUT TIME ZONE` | NOT NULL | `—` |
+| `end_time` | `TIME WITHOUT TIME ZONE` | NOT NULL | `—` |
+| `valid_from` | `DATE` | NOT NULL | `—` |
+| `valid_until` | `DATE` | NULL | `—` |
+
+- `CONSTRAINT ck_therapist_availability_validity CHECK (valid_until IS NULL OR valid_until >= valid_from)`.
+- `CONSTRAINT ck_therapist_availability_weekday CHECK (weekday BETWEEN 0 AND 6)`.
+- `CONSTRAINT ck_therapist_availability_window CHECK (start_time < end_time)`.
+- `CONSTRAINT fk_therapist_availability_clinic FOREIGN KEY(tenant_id, clinic_id) REFERENCES clinic (tenant_id, id)`.
+- `CONSTRAINT fk_therapist_availability_tenant FOREIGN KEY(tenant_id) REFERENCES tenant (id)`.
+- `CONSTRAINT fk_therapist_availability_therapist FOREIGN KEY(tenant_id, therapist_id) REFERENCES therapist (tenant_id, id)`.
+- `PRIMARY KEY (id)`.
+- `CONSTRAINT uq_therapist_availability_tenant_id_id UNIQUE (tenant_id, id)`.
+
+### `therapist_clinic`
+
+ORM: [`TherapistClinic`](../../apps/api/src/clinic_api/db/models/catalog/affiliations.py).
+Migração: [`0004_catalog_integrity`](../../apps/api/migrations/versions/0004_catalog_integrity.py). Regras relacionadas: RN-001 a RN-004, RN-026.
+Teste: [`test_catalog_schema.py`](../../apps/api/tests/test_catalog_schema.py).
+
+| Coluna | Tipo | Nulabilidade | Default SQL |
+| --- | --- | --- | --- |
+| `tenant_id` | `UUID` | NOT NULL | `—` |
+| `therapist_id` | `UUID` | NOT NULL | `—` |
+| `clinic_id` | `UUID` | NOT NULL | `—` |
+| `active` | `BOOLEAN` | NOT NULL | `true` |
+| `created_at` | `TIMESTAMP WITH TIME ZONE` | NOT NULL | `now()` |
+| `updated_at` | `TIMESTAMP WITH TIME ZONE` | NOT NULL | `now()` |
+
+- `FOREIGN KEY(tenant_id) REFERENCES tenant (id)`.
+- `CONSTRAINT fk_therapist_clinic_clinic FOREIGN KEY(tenant_id, clinic_id) REFERENCES clinic (tenant_id, id)`.
+- `CONSTRAINT fk_therapist_clinic_therapist FOREIGN KEY(tenant_id, therapist_id) REFERENCES therapist (tenant_id, id)`.
+- `PRIMARY KEY (tenant_id, therapist_id, clinic_id)`.
+
+### `therapist_specialty`
+
+ORM: [`TherapistSpecialty`](../../apps/api/src/clinic_api/db/models/catalog/specialties.py).
+Migração: [`0004_catalog_integrity`](../../apps/api/migrations/versions/0004_catalog_integrity.py). Regras relacionadas: RN-001 a RN-004, RN-026.
+Teste: [`test_catalog_schema.py`](../../apps/api/tests/test_catalog_schema.py).
+
+| Coluna | Tipo | Nulabilidade | Default SQL |
+| --- | --- | --- | --- |
+| `tenant_id` | `UUID` | NOT NULL | `—` |
+| `therapist_id` | `UUID` | NOT NULL | `—` |
+| `specialty_id` | `UUID` | NOT NULL | `—` |
+| `active` | `BOOLEAN` | NOT NULL | `true` |
+| `created_at` | `TIMESTAMP WITH TIME ZONE` | NOT NULL | `now()` |
+| `updated_at` | `TIMESTAMP WITH TIME ZONE` | NOT NULL | `now()` |
+
+- `FOREIGN KEY(tenant_id) REFERENCES tenant (id)`.
+- `CONSTRAINT fk_therapist_specialty_specialty FOREIGN KEY(tenant_id, specialty_id) REFERENCES specialty (tenant_id, id)`.
+- `CONSTRAINT fk_therapist_specialty_therapist FOREIGN KEY(tenant_id, therapist_id) REFERENCES therapist (tenant_id, id)`.
+- `PRIMARY KEY (tenant_id, therapist_id, specialty_id)`.
+
+### `treatment_plan`
+
+ORM: [`TreatmentPlan`](../../apps/api/src/clinic_api/db/models/planning/treatment.py).
+Migração: [`0005_treatment_planning`](../../apps/api/migrations/versions/0005_treatment_planning.py). Regras relacionadas: RN-005 a RN-007.
+Teste: [`test_planning_schema.py`](../../apps/api/tests/test_planning_schema.py).
+
+| Coluna | Tipo | Nulabilidade | Default SQL |
+| --- | --- | --- | --- |
+| `id` | `UUID` | NOT NULL | `—` |
+| `tenant_id` | `UUID` | NOT NULL | `—` |
+| `created_at` | `TIMESTAMP WITH TIME ZONE` | NOT NULL | `now()` |
+| `updated_at` | `TIMESTAMP WITH TIME ZONE` | NOT NULL | `now()` |
+| `patient_id` | `UUID` | NOT NULL | `—` |
+| `therapist_id` | `UUID` | NOT NULL | `—` |
+| `specialty_id` | `UUID` | NOT NULL | `—` |
+| `sessions_per_week` | `INTEGER` | NOT NULL | `—` |
+| `duration_minutes` | `INTEGER` | NULL | `—` |
+| `valid_from` | `DATE` | NOT NULL | `—` |
+| `valid_until` | `DATE` | NULL | `—` |
+
+- `CONSTRAINT ck_treatment_plan_duration CHECK (duration_minutes IS NULL OR duration_minutes > 0)`.
+- `CONSTRAINT ck_treatment_plan_frequency CHECK (sessions_per_week > 0)`.
+- `CONSTRAINT ck_treatment_plan_validity CHECK (valid_until IS NULL OR valid_until >= valid_from)`.
+- `CONSTRAINT ex_treatment_plan_validity EXCLUDE USING gist (tenant_id WITH =, patient_id WITH =, therapist_id WITH =, specialty_id WITH =, daterange(valid_from, valid_until + 1, '[)') WITH &&)`.
+- `CONSTRAINT fk_treatment_plan_patient FOREIGN KEY(tenant_id, patient_id) REFERENCES patient (tenant_id, id)`.
+- `CONSTRAINT fk_treatment_plan_specialty FOREIGN KEY(tenant_id, specialty_id) REFERENCES specialty (tenant_id, id)`.
+- `CONSTRAINT fk_treatment_plan_tenant FOREIGN KEY(tenant_id) REFERENCES tenant (id)`.
+- `CONSTRAINT fk_treatment_plan_therapist FOREIGN KEY(tenant_id, therapist_id) REFERENCES therapist (tenant_id, id)`.
+- `PRIMARY KEY (id)`.
+- `CONSTRAINT uq_treatment_plan_identity UNIQUE (tenant_id, id, patient_id, therapist_id, specialty_id)`.
+- `CONSTRAINT uq_treatment_plan_tenant_id_id UNIQUE (tenant_id, id)`.
+
+### `treatment_plan_clinic`
+
+ORM: [`TreatmentPlanClinic`](../../apps/api/src/clinic_api/db/models/planning/treatment.py).
+Migração: [`0005_treatment_planning`](../../apps/api/migrations/versions/0005_treatment_planning.py). Regras relacionadas: RN-005 a RN-007.
+Teste: [`test_planning_schema.py`](../../apps/api/tests/test_planning_schema.py).
+
+| Coluna | Tipo | Nulabilidade | Default SQL |
+| --- | --- | --- | --- |
+| `tenant_id` | `UUID` | NOT NULL | `—` |
+| `treatment_plan_id` | `UUID` | NOT NULL | `—` |
+| `clinic_id` | `UUID` | NOT NULL | `—` |
+| `active` | `BOOLEAN` | NOT NULL | `true` |
+| `created_at` | `TIMESTAMP WITH TIME ZONE` | NOT NULL | `now()` |
+| `updated_at` | `TIMESTAMP WITH TIME ZONE` | NOT NULL | `now()` |
+
+- `CONSTRAINT fk_treatment_plan_clinic_clinic FOREIGN KEY(tenant_id, clinic_id) REFERENCES clinic (tenant_id, id)`.
+- `CONSTRAINT fk_treatment_plan_clinic_treatment_plan FOREIGN KEY(tenant_id, treatment_plan_id) REFERENCES treatment_plan (tenant_id, id)`.
+- `PRIMARY KEY (tenant_id, treatment_plan_id, clinic_id)`.
+
+### `user`
+
+ORM: [`User`](../../apps/api/src/clinic_api/db/models/identity/access.py).
+Migração: [`0001_identity`](../../apps/api/migrations/versions/0001_identity.py). Regras relacionadas: RN-001, RN-003.
+Teste: [`test_database.py`](../../apps/api/tests/test_database.py).
+
+| Coluna | Tipo | Nulabilidade | Default SQL |
+| --- | --- | --- | --- |
+| `id` | `UUID` | NOT NULL | `—` |
+| `name` | `TEXT` | NOT NULL | `—` |
+| `active` | `BOOLEAN` | NOT NULL | `true` |
+| `created_at` | `TIMESTAMP WITH TIME ZONE` | NOT NULL | `now()` |
+| `updated_at` | `TIMESTAMP WITH TIME ZONE` | NOT NULL | `now()` |
+
+- `PRIMARY KEY (id)`.
+
+### `user_tenant`
+
+ORM: [`UserTenant`](../../apps/api/src/clinic_api/db/models/identity/access.py).
+Migração: [`0001_identity`](../../apps/api/migrations/versions/0001_identity.py). Regras relacionadas: RN-001, RN-003.
+Teste: [`test_database.py`](../../apps/api/tests/test_database.py).
+
+| Coluna | Tipo | Nulabilidade | Default SQL |
+| --- | --- | --- | --- |
+| `tenant_id` | `UUID` | NOT NULL | `—` |
+| `user_id` | `UUID` | NOT NULL | `—` |
+| `role` | `TEXT` | NOT NULL | `'admin'` |
+| `active` | `BOOLEAN` | NOT NULL | `true` |
+| `created_at` | `TIMESTAMP WITH TIME ZONE` | NOT NULL | `now()` |
+| `updated_at` | `TIMESTAMP WITH TIME ZONE` | NOT NULL | `now()` |
+
+- `CONSTRAINT ck_user_tenants_admin_role CHECK (role = 'admin')`.
+- `FOREIGN KEY(user_id) REFERENCES "user" (id)`.
+- `FOREIGN KEY(tenant_id) REFERENCES tenant (id)`.
+- `PRIMARY KEY (tenant_id, user_id)`.
+
+### `weekly_slot`
+
+ORM: [`WeeklySlot`](../../apps/api/src/clinic_api/db/models/planning/weekly.py).
+Migração: [`0006_weekly_slots`](../../apps/api/migrations/versions/0006_weekly_slots.py). Regras relacionadas: RN-009, RN-010, RN-014.
+Teste: [`test_weekly_slot_schema.py`](../../apps/api/tests/test_weekly_slot_schema.py).
+
+| Coluna | Tipo | Nulabilidade | Default SQL |
+| --- | --- | --- | --- |
+| `id` | `UUID` | NOT NULL | `—` |
+| `tenant_id` | `UUID` | NOT NULL | `—` |
+| `created_at` | `TIMESTAMP WITH TIME ZONE` | NOT NULL | `now()` |
+| `updated_at` | `TIMESTAMP WITH TIME ZONE` | NOT NULL | `now()` |
+| `treatment_plan_id` | `UUID` | NOT NULL | `—` |
+| `clinic_id` | `UUID` | NOT NULL | `—` |
+| `room_id` | `UUID` | NOT NULL | `—` |
+| `weekday` | `SMALLINT` | NOT NULL | `—` |
+| `start_time` | `TIME WITHOUT TIME ZONE` | NOT NULL | `—` |
+| `duration_minutes` | `INTEGER` | NOT NULL | `—` |
+| `valid_from` | `DATE` | NOT NULL | `—` |
+| `valid_until` | `DATE` | NULL | `—` |
+
+- `CONSTRAINT ck_weekly_slot_duration CHECK (duration_minutes > 0)`.
+- `CONSTRAINT ck_weekly_slot_validity CHECK (valid_until IS NULL OR valid_until >= valid_from)`.
+- `CONSTRAINT ck_weekly_slot_weekday CHECK (weekday BETWEEN 0 AND 6)`.
+- `CONSTRAINT fk_weekly_slot_clinic FOREIGN KEY(tenant_id, clinic_id) REFERENCES clinic (tenant_id, id)`.
+- `CONSTRAINT fk_weekly_slot_room FOREIGN KEY(tenant_id, room_id) REFERENCES room (tenant_id, id)`.
+- `CONSTRAINT fk_weekly_slot_room_clinic FOREIGN KEY(tenant_id, clinic_id, room_id) REFERENCES room (tenant_id, clinic_id, id)`.
+- `CONSTRAINT fk_weekly_slot_tenant FOREIGN KEY(tenant_id) REFERENCES tenant (id)`.
+- `CONSTRAINT fk_weekly_slot_treatment_plan FOREIGN KEY(tenant_id, treatment_plan_id) REFERENCES treatment_plan (tenant_id, id)`.
+- `CONSTRAINT fk_weekly_slot_treatment_plan_clinic FOREIGN KEY(tenant_id, treatment_plan_id, clinic_id) REFERENCES treatment_plan_clinic (tenant_id, treatment_plan_id, clinic_id)`.
+- `PRIMARY KEY (id)`.
+- `CONSTRAINT uq_weekly_slot_tenant_id_id UNIQUE (tenant_id, id)`.
+- `CONSTRAINT uq_weekly_slot_tenant_id_id_treatment_plan_id UNIQUE (tenant_id, id, treatment_plan_id)`.
+
+## Manutenção
+
+Atualizar schema, modelos, migração, diagramas e testes na mesma entrega.
+[Operação](operations.md) descreve provisionamento e comandos. Regras ficam na
+[referência funcional](../business/business-rules.md); progresso fica no plano,
+sem inserir acompanhamento de execução neste dicionário.

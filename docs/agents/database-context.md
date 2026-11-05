@@ -2,14 +2,17 @@
 
 ## Escopo e limites
 
-A persistência usa PostgreSQL 18 e migração `0001_identity`, com
-RLS forçada sem políticas permissivas, papéis separados e testes reais em Docker.
-O [desenho conceitual](../superpowers/specs/2026-10-09-clinic-database-design.md)
-está aprovado; o [dicionário físico](../database/schema.md) distingue identidade
-existente dos demais elementos propostos. ORM, registro de entidades e contexto
-autorizado por tenant ainda não estão disponíveis. Interfaces e proprietários
-dos módulos estão no [mapa de arquitetura](../architecture/clinic-domain-modules.md).
-Respeitar o escopo de trabalho autorizado pelo usuário.
+A persistência usa PostgreSQL 18, modelos SQLAlchemy e Alembic até
+`0010_monthly_agenda_schema`. As 26 tabelas cobrem identidade, catálogo,
+planejamento, calendário, sessões e estruturas de geração/reposição.
+O [dicionário físico](../database/schema.md) detalha as colunas, constraints,
+políticas e triggers implementados. O [mapa de módulos](../architecture/clinic-domain-modules.md)
+indica seus proprietários. Serviços clínicos e geração automática permanecem
+planejados; persistir uma estrutura não executa seus fluxos de negócio.
+
+**Leitura mínima para alterar schema:** regra RN afetada → trecho do dicionário
+→ modelo e migração proprietários → testes do domínio. Não alterar revisões já
+entregues; criar uma nova revisão encadeada e registrar os novos modelos.
 
 ## Fontes por decisão
 
@@ -37,8 +40,9 @@ Respeitar o escopo de trabalho autorizado pelo usuário.
 | Geração parcial e repetição | RN-013, RN-014 | Motivos de déficit e ausência de duplicação. |
 | Metadata e deploy | Integridade técnica | Schema, privilégios, migrations e startup coerentes. |
 
-Esses invariantes orientam a implementação do modelo clínico. A persistência
-existente é verificada por `apps/api/tests/test_database.py`; usar `make test-api`, conforme
+Esses invariantes orientam a implementação do modelo clínico. A persistência é verificada por testes `test_*_schema.py`,
+`test_schema_isolation.py`, `test_migrations.py` e `test_model_registry.py`;
+usar `make test-api`, conforme
 [operação](../database/operations.md). Bootstrap compartilhado:
 `scripts/bootstrap-db.sh`; fixtures `admin_engine`, `runtime_engine` e
 `factory: ClinicFactory` usam banco descartável, com limpeza pelo migrator.
