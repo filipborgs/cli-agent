@@ -1,7 +1,7 @@
 # Dicionário físico do banco
 
-Status: 18 tabelas de aplicação e modelos ORM implementados; head
-Alembic `0006_weekly_slots`. Serviços clínicos e geração automática continuam planejados.
+Status: 20 tabelas de aplicação e modelos ORM implementados; head
+Alembic `0007_appointments`. Serviços clínicos e geração automática continuam planejados.
 
 ## Convenções
 
@@ -44,9 +44,24 @@ políticas finais de identidade. A `0003_catalog` criou as seis tabelas iniciais
 do catálogo; `0004_catalog_integrity` completa FKs, campos comuns, associações
 e políticas. Revisões existentes são preservadas.
 
+### Triggers
+
+- `appointment_resources` → `validate_appointment_resources()`: em nova reserva
+  ou mudança de recursos/intervalo de uma reserva, exige plano/clínica habilitados,
+  pessoas e cadastros ativos, participações na clínica e especialidades do
+  terapeuta e sala. Obtém locks FOR SHARE nos registros consultados; uma
+  inativação concorrente espera a transação da reserva terminar. Não invalida
+  histórico ao inativar um cadastro nem revalida recursos numa simples mudança
+  entre estados que já reservavam o mesmo intervalo.
+Funções de trigger usam PL/pgSQL e search_path explícito. Não sincronizam
+estados de dívida/sessão, não criam eventos automaticamente e não consultam
+fechamentos/disponibilidade. Essas operações de negócio ainda precisam de
+serviços próprios. Exclusões GiST e índices únicos são a defesa final contra
+reservas e tentativas concorrentes.
+
 ## Evidências
 
-Testes de banco disponíveis: [`test_catalog_schema.py`](../../apps/api/tests/test_catalog_schema.py), [`test_planning_schema.py`](../../apps/api/tests/test_planning_schema.py), [`test_weekly_slot_schema.py`](../../apps/api/tests/test_weekly_slot_schema.py).
+Testes de banco disponíveis: [`test_catalog_schema.py`](../../apps/api/tests/test_catalog_schema.py), [`test_planning_schema.py`](../../apps/api/tests/test_planning_schema.py), [`test_weekly_slot_schema.py`](../../apps/api/tests/test_weekly_slot_schema.py), [`test_appointment_schema.py`](../../apps/api/tests/test_appointment_schema.py).
 O registro ORM e o round-trip das migrações são verificados pelos testes
 existentes de banco. Auditoria transversal adicional permanece planejada.
 
@@ -55,6 +70,84 @@ existentes de banco. Auditoria transversal adicional permanece planejada.
 Tipos abaixo são PostgreSQL. `NULL` indica campo opcional; `—` indica ausência
 de default SQL. PKs e constraints sem nome explícito recebem o nome padrão do
 PostgreSQL. `alembic_version` é controle da ferramenta e não recebe acesso runtime.
+
+### `appointment`
+
+ORM: [`Appointment`](../../apps/api/src/clinic_api/db/models/scheduling/appointments.py).
+Migração: [`0007_appointments`](../../apps/api/migrations/versions/0007_appointments.py). Regras relacionadas: RN-011, RN-012, RN-014 a RN-016.
+Teste: [`test_appointment_schema.py`](../../apps/api/tests/test_appointment_schema.py).
+
+| Coluna | Tipo | Nulabilidade | Default SQL |
+| --- | --- | --- | --- |
+| `id` | `UUID` | NOT NULL | `—` |
+| `tenant_id` | `UUID` | NOT NULL | `—` |
+| `created_at` | `TIMESTAMP WITH TIME ZONE` | NOT NULL | `now()` |
+| `updated_at` | `TIMESTAMP WITH TIME ZONE` | NOT NULL | `now()` |
+| `treatment_plan_id` | `UUID` | NOT NULL | `—` |
+| `clinic_id` | `UUID` | NOT NULL | `—` |
+| `room_id` | `UUID` | NOT NULL | `—` |
+| `patient_id` | `UUID` | NOT NULL | `—` |
+| `therapist_id` | `UUID` | NOT NULL | `—` |
+| `specialty_id` | `UUID` | NOT NULL | `—` |
+| `starts_at` | `TIMESTAMP WITH TIME ZONE` | NOT NULL | `—` |
+| `ends_at` | `TIMESTAMP WITH TIME ZONE` | NOT NULL | `—` |
+| `duration_minutes` | `INTEGER` | NOT NULL | `—` |
+| `origin` | `TEXT` | NOT NULL | `—` |
+| `status` | `TEXT` | NOT NULL | `'scheduled'` |
+| `weekly_slot_id` | `UUID` | NULL | `—` |
+| `occurrence_date` | `DATE` | NULL | `—` |
+| `manually_adjusted` | `BOOLEAN` | NOT NULL | `false` |
+| `replacement_decision` | `TEXT` | NOT NULL | `'not_applicable'` |
+
+- `CONSTRAINT ck_appointment_duration CHECK (duration_minutes > 0)`.
+- `CONSTRAINT ck_appointment_interval CHECK (starts_at < ends_at)`.
+- `CONSTRAINT ck_appointment_origin CHECK (origin IN ('routine', 'replacement'))`.
+- `CONSTRAINT ck_appointment_replacement_decision CHECK (replacement_decision IN ('not_applicable', 'awaiting_decision', 'granted', 'denied'))`.
+- `CONSTRAINT ck_appointment_status CHECK (status IN ('scheduled', 'completed', 'cancelled', 'patient_absent', 'therapist_absent', 'dispensed'))`.
+- `CONSTRAINT ex_appointment_patient EXCLUDE USING gist (tenant_id WITH =, patient_id WITH =, tstzrange(starts_at, ends_at, '[)') WITH &&) WHERE (status IN ('scheduled', 'completed'))`.
+- `CONSTRAINT ex_appointment_room EXCLUDE USING gist (tenant_id WITH =, room_id WITH =, tstzrange(starts_at, ends_at, '[)') WITH &&) WHERE (status IN ('scheduled', 'completed'))`.
+- `CONSTRAINT ex_appointment_therapist EXCLUDE USING gist (tenant_id WITH =, therapist_id WITH =, tstzrange(starts_at, ends_at, '[)') WITH &&) WHERE (status IN ('scheduled', 'completed'))`.
+- `CONSTRAINT fk_appointment_clinic FOREIGN KEY(tenant_id, clinic_id) REFERENCES clinic (tenant_id, id)`.
+- `CONSTRAINT fk_appointment_patient FOREIGN KEY(tenant_id, patient_id) REFERENCES patient (tenant_id, id)`.
+- `CONSTRAINT fk_appointment_plan_identity FOREIGN KEY(tenant_id, treatment_plan_id, patient_id, therapist_id, specialty_id) REFERENCES treatment_plan (tenant_id, id, patient_id, therapist_id, specialty_id)`.
+- `CONSTRAINT fk_appointment_room FOREIGN KEY(tenant_id, room_id) REFERENCES room (tenant_id, id)`.
+- `CONSTRAINT fk_appointment_room_clinic FOREIGN KEY(tenant_id, clinic_id, room_id) REFERENCES room (tenant_id, clinic_id, id)`.
+- `CONSTRAINT fk_appointment_slot_plan FOREIGN KEY(tenant_id, weekly_slot_id, treatment_plan_id) REFERENCES weekly_slot (tenant_id, id, treatment_plan_id)`.
+- `CONSTRAINT fk_appointment_specialty FOREIGN KEY(tenant_id, specialty_id) REFERENCES specialty (tenant_id, id)`.
+- `CONSTRAINT fk_appointment_tenant FOREIGN KEY(tenant_id) REFERENCES tenant (id)`.
+- `CONSTRAINT fk_appointment_therapist FOREIGN KEY(tenant_id, therapist_id) REFERENCES therapist (tenant_id, id)`.
+- `CONSTRAINT fk_appointment_treatment_plan FOREIGN KEY(tenant_id, treatment_plan_id) REFERENCES treatment_plan (tenant_id, id)`.
+- `CONSTRAINT fk_appointment_treatment_plan_clinic FOREIGN KEY(tenant_id, treatment_plan_id, clinic_id) REFERENCES treatment_plan_clinic (tenant_id, treatment_plan_id, clinic_id)`.
+- `CONSTRAINT fk_appointment_weekly_slot FOREIGN KEY(tenant_id, weekly_slot_id) REFERENCES weekly_slot (tenant_id, id)`.
+- `PRIMARY KEY (id)`.
+- `CONSTRAINT uq_appointment_tenant_id_id UNIQUE (tenant_id, id)`.
+- `CONSTRAINT uq_appointment_tenant_id_id_treatment_plan_id UNIQUE (tenant_id, id, treatment_plan_id)`.
+- `CREATE UNIQUE INDEX uq_appointment_occurrence ON appointment (tenant_id, weekly_slot_id, occurrence_date) WHERE weekly_slot_id IS NOT NULL`.
+
+
+### `appointment_event`
+
+ORM: [`AppointmentEvent`](../../apps/api/src/clinic_api/db/models/scheduling/appointments.py).
+Migração: [`0007_appointments`](../../apps/api/migrations/versions/0007_appointments.py). Regras relacionadas: RN-011, RN-012, RN-014 a RN-016.
+Teste: [`test_appointment_schema.py`](../../apps/api/tests/test_appointment_schema.py).
+
+| Coluna | Tipo | Nulabilidade | Default SQL |
+| --- | --- | --- | --- |
+| `id` | `UUID` | NOT NULL | `—` |
+| `tenant_id` | `UUID` | NOT NULL | `—` |
+| `appointment_id` | `UUID` | NOT NULL | `—` |
+| `actor_id` | `UUID` | NULL | `—` |
+| `recorded_at` | `TIMESTAMP WITH TIME ZONE` | NOT NULL | `now()` |
+| `kind` | `TEXT` | NOT NULL | `—` |
+| `reason` | `TEXT` | NULL | `—` |
+| `before` | `JSONB` | NOT NULL | `'{}'::jsonb` |
+| `after` | `JSONB` | NOT NULL | `'{}'::jsonb` |
+
+- `CONSTRAINT fk_appointment_event_appointment FOREIGN KEY(tenant_id, appointment_id) REFERENCES appointment (tenant_id, id)`.
+- `CONSTRAINT fk_appointment_event_tenant FOREIGN KEY(tenant_id) REFERENCES tenant (id)`.
+- `CONSTRAINT fk_appointment_event_user_tenant FOREIGN KEY(tenant_id, actor_id) REFERENCES user_tenant (tenant_id, user_id)`.
+- `PRIMARY KEY (id)`.
+- `CONSTRAINT uq_appointment_event_tenant_id_id UNIQUE (tenant_id, id)`.
 
 ### `clinic`
 

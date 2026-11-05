@@ -113,3 +113,16 @@ def weekly(connection: Connection, tenant_id: UUID) -> dict[str, UUID]:
         valid_from="2026-10-01",
     )
     return {**ids, "weekly_slot_id": slot}
+
+
+def appointment_values(ids: dict[str, UUID], **overrides: object) -> dict[str, object]:
+    return {
+        **ids,
+        "starts_at": "2026-10-05T12:00:00Z",
+        "ends_at": "2026-10-05T12:30:00Z",
+        "duration_minutes": 30,
+        "origin": "routine",
+        "status": "scheduled",
+        "occurrence_date": "2026-10-05",
+        **overrides,
+    }

@@ -45,11 +45,11 @@ plano inserem dados diretamente por SQL/ORM, sem depender de serviços clínicos
 
 Branch de execução: `feat/clinic-database-schema`, baseada em `52f1a6d`.
 O usuário autorizou os oito commits incrementais em 2026-11-04. Este snapshot
-inclui identidade e catálogo, planos e disponibilidades, rotina semanal: 18 tabelas, head `0006_weekly_slots`.
+inclui identidade e catálogo, planos e disponibilidades, rotina semanal, sessões e eventos: 20 tabelas, head `0007_appointments`.
 As demais etapas continuam planejadas até seus respectivos incrementos.
 Não há autorização de push ou merge.
 
-Verificação deste incremento: 38 passed in 7.11s ==============================.
+Verificação deste incremento: 66 passed in 14.58s ==============================.
 A implementação foi previamente revisada; regressões e auditorias transversais
 são incorporadas nos incrementos correspondentes.
 
@@ -236,22 +236,22 @@ e índices correspondentes.
 `0007_appointments.py` e `apps/api/tests/test_appointment_schema.py`.
 **Regras relacionadas:** restrições de RN-011, RN-012, RN-014 a RN-016.
 
-- [ ] Escrever testes para estados/origem válidos, duração e intervalo positivos,
+- [x] Escrever testes para estados/origem válidos, duração e intervalo positivos,
   coerência plano/paciente/terapeuta/especialidade e sala/clínica, referência de
   autor no mesmo tenant e persistência JSONB dos eventos.
-- [ ] Testar unicidade de `(tenant_id, weekly_slot_id, occurrence_date)` mesmo
+- [x] Testar unicidade de `(tenant_id, weekly_slot_id, occurrence_date)` mesmo
   após mudança do intervalo ou estado, sem executar serviço de reagendamento.
-- [ ] Testar exclusões por paciente, terapeuta e sala, inclusive entre clínicas:
+- [x] Testar exclusões por paciente, terapeuta e sala, inclusive entre clínicas:
   intervalos adjacentes são aceitos; sobrepostos em `scheduled`/`completed`
   são rejeitados; estados sem reserva liberam o horário preservando a linha.
   Duas transações concorrentes devem permitir apenas uma reserva conflitante.
-- [ ] Confirmar falha; criar `appointment` e `appointment_event`, modelos ORM,
+- [x] Confirmar falha; criar `appointment` e `appointment_event`, modelos ORM,
   checks, FKs compostas, exclusões parciais GiST, índices e RLS.
   Adicionar campos e checks de reposição na Task 7, quando existir a dívida.
-- [ ] Criar triggers de integridade de novas reservas para clínica habilitada,
+- [x] Criar triggers de integridade de novas reservas para clínica habilitada,
   terapeuta habilitado e sala compatível, conforme dicionário; testar rejeição
   e preservação do histórico quando cadastros forem inativados.
-- [ ] Executar testes de sessões/schema, concorrência, matriz RLS e registro.
+- [x] Executar testes de sessões/schema, concorrência, matriz RLS e registro.
 
 ### Task 7: Dívidas e tentativas de reposição
 
