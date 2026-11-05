@@ -13,3 +13,5 @@ def register_models() -> None:
     import_module("clinic_api.db.models.planning.weekly")
     import_module("clinic_api.db.models.scheduling.appointments")
     import_module("clinic_api.db.models.scheduling.replacements")
+    import_module("clinic_api.db.models.calendar.closures")
+    import_module("clinic_api.db.models.calendar.person_blocks")

@@ -45,7 +45,7 @@ plano inserem dados diretamente por SQL/ORM, sem depender de serviços clínicos
 
 Branch de execução: `feat/clinic-database-schema`, baseada em `52f1a6d`.
 O usuário autorizou os oito commits incrementais em 2026-11-04. Este snapshot
-inclui identidade e catálogo, planos e disponibilidades, rotina semanal, sessões e eventos, reposições: 21 tabelas, head `0008_replacement_schema`.
+inclui identidade e catálogo, planos e disponibilidades, rotina semanal, sessões e eventos, reposições, calendário: 23 tabelas, head `0009_calendar_schema`.
 As demais etapas continuam planejadas até seus respectivos incrementos.
 Não há autorização de push ou merge.
 
@@ -276,11 +276,11 @@ e índices correspondentes.
 `0009_calendar_schema.py` e `apps/api/tests/test_calendar_schema.py`.
 **Regras relacionadas:** suporte de dados para RN-017 a RN-020.
 
-- [ ] Escrever testes para intervalos positivos, autor do mesmo tenant e
+- [x] Escrever testes para intervalos positivos, autor do mesmo tenant e
   exatamente uma pessoa por bloqueio (paciente ou terapeuta, nunca ambos).
-- [ ] Confirmar falha; criar `clinic_closure` e `person_block`, modelos ORM,
+- [x] Confirmar falha; criar `clinic_closure` e `person_block`, modelos ORM,
   FKs compostas, checks, índices de consulta temporal e RLS.
-- [ ] Executar testes específicos, matriz RLS e registro. Não materializar
+- [x] Executar testes específicos, matriz RLS e registro. Não materializar
   ausências, cancelar sessões ou gerar direitos como efeito desses registros.
 
 ### Task 9: Estruturas da agenda mensal e diagnóstico

@@ -1,7 +1,7 @@
 # Dicionário físico do banco
 
-Status: 21 tabelas de aplicação e modelos ORM implementados; head
-Alembic `0008_replacement_schema`. Serviços clínicos e geração automática continuam planejados.
+Status: 23 tabelas de aplicação e modelos ORM implementados; head
+Alembic `0009_calendar_schema`. Serviços clínicos e geração automática continuam planejados.
 
 ## Convenções
 
@@ -75,7 +75,7 @@ reservas e tentativas concorrentes.
 
 ## Evidências
 
-Testes de banco disponíveis: [`test_catalog_schema.py`](../../apps/api/tests/test_catalog_schema.py), [`test_planning_schema.py`](../../apps/api/tests/test_planning_schema.py), [`test_weekly_slot_schema.py`](../../apps/api/tests/test_weekly_slot_schema.py), [`test_appointment_schema.py`](../../apps/api/tests/test_appointment_schema.py), [`test_replacement_schema.py`](../../apps/api/tests/test_replacement_schema.py).
+Testes de banco disponíveis: [`test_catalog_schema.py`](../../apps/api/tests/test_catalog_schema.py), [`test_planning_schema.py`](../../apps/api/tests/test_planning_schema.py), [`test_weekly_slot_schema.py`](../../apps/api/tests/test_weekly_slot_schema.py), [`test_appointment_schema.py`](../../apps/api/tests/test_appointment_schema.py), [`test_replacement_schema.py`](../../apps/api/tests/test_replacement_schema.py), [`test_calendar_schema.py`](../../apps/api/tests/test_calendar_schema.py).
 O registro ORM e o round-trip das migrações são verificados pelos testes
 existentes de banco. Auditoria transversal adicional permanece planejada.
 
@@ -190,6 +190,32 @@ Teste: [`test_catalog_schema.py`](../../apps/api/tests/test_catalog_schema.py).
 - `PRIMARY KEY (id)`.
 - `CONSTRAINT uq_clinic_tenant_id UNIQUE (tenant_id, id)`.
 
+### `clinic_closure`
+
+ORM: [`ClinicClosure`](../../apps/api/src/clinic_api/db/models/calendar/closures.py).
+Migração: [`0009_calendar_schema`](../../apps/api/migrations/versions/0009_calendar_schema.py). Regras relacionadas: RN-017 a RN-020.
+Teste: [`test_calendar_schema.py`](../../apps/api/tests/test_calendar_schema.py).
+
+| Coluna | Tipo | Nulabilidade | Default SQL |
+| --- | --- | --- | --- |
+| `id` | `UUID` | NOT NULL | `—` |
+| `tenant_id` | `UUID` | NOT NULL | `—` |
+| `created_at` | `TIMESTAMP WITH TIME ZONE` | NOT NULL | `now()` |
+| `updated_at` | `TIMESTAMP WITH TIME ZONE` | NOT NULL | `now()` |
+| `clinic_id` | `UUID` | NOT NULL | `—` |
+| `starts_at` | `TIMESTAMP WITH TIME ZONE` | NOT NULL | `—` |
+| `ends_at` | `TIMESTAMP WITH TIME ZONE` | NOT NULL | `—` |
+| `reason` | `TEXT` | NOT NULL | `—` |
+| `created_by` | `UUID` | NOT NULL | `—` |
+
+- `CONSTRAINT ck_clinic_closure_interval CHECK (starts_at < ends_at)`.
+- `CONSTRAINT fk_clinic_closure_clinic FOREIGN KEY(tenant_id, clinic_id) REFERENCES clinic (tenant_id, id)`.
+- `CONSTRAINT fk_clinic_closure_tenant FOREIGN KEY(tenant_id) REFERENCES tenant (id)`.
+- `CONSTRAINT fk_clinic_closure_user_tenant FOREIGN KEY(tenant_id, created_by) REFERENCES user_tenant (tenant_id, user_id)`.
+- `PRIMARY KEY (id)`.
+- `CONSTRAINT uq_clinic_closure_tenant_id_id UNIQUE (tenant_id, id)`.
+- `CREATE INDEX ix_clinic_closure_interval ON clinic_closure USING gist (tenant_id, tstzrange(starts_at, ends_at, '[)'))`.
+
 ### `clinic_hours`
 
 ORM: [`ClinicHours`](../../apps/api/src/clinic_api/db/models/planning/availability.py).
@@ -284,6 +310,35 @@ Teste: [`test_catalog_schema.py`](../../apps/api/tests/test_catalog_schema.py).
 - `CONSTRAINT fk_patient_clinic_clinic FOREIGN KEY(tenant_id, clinic_id) REFERENCES clinic (tenant_id, id)`.
 - `CONSTRAINT fk_patient_clinic_patient FOREIGN KEY(tenant_id, patient_id) REFERENCES patient (tenant_id, id)`.
 - `PRIMARY KEY (tenant_id, patient_id, clinic_id)`.
+
+### `person_block`
+
+ORM: [`PersonBlock`](../../apps/api/src/clinic_api/db/models/calendar/person_blocks.py).
+Migração: [`0009_calendar_schema`](../../apps/api/migrations/versions/0009_calendar_schema.py). Regras relacionadas: RN-017 a RN-020.
+Teste: [`test_calendar_schema.py`](../../apps/api/tests/test_calendar_schema.py).
+
+| Coluna | Tipo | Nulabilidade | Default SQL |
+| --- | --- | --- | --- |
+| `id` | `UUID` | NOT NULL | `—` |
+| `tenant_id` | `UUID` | NOT NULL | `—` |
+| `created_at` | `TIMESTAMP WITH TIME ZONE` | NOT NULL | `now()` |
+| `updated_at` | `TIMESTAMP WITH TIME ZONE` | NOT NULL | `now()` |
+| `patient_id` | `UUID` | NULL | `—` |
+| `therapist_id` | `UUID` | NULL | `—` |
+| `starts_at` | `TIMESTAMP WITH TIME ZONE` | NOT NULL | `—` |
+| `ends_at` | `TIMESTAMP WITH TIME ZONE` | NOT NULL | `—` |
+| `reason` | `TEXT` | NOT NULL | `—` |
+| `created_by` | `UUID` | NOT NULL | `—` |
+
+- `CONSTRAINT ck_person_block_interval CHECK (starts_at < ends_at)`.
+- `CONSTRAINT ck_person_block_one_person CHECK ((patient_id IS NOT NULL) <> (therapist_id IS NOT NULL))`.
+- `CONSTRAINT fk_person_block_patient FOREIGN KEY(tenant_id, patient_id) REFERENCES patient (tenant_id, id)`.
+- `CONSTRAINT fk_person_block_tenant FOREIGN KEY(tenant_id) REFERENCES tenant (id)`.
+- `CONSTRAINT fk_person_block_therapist FOREIGN KEY(tenant_id, therapist_id) REFERENCES therapist (tenant_id, id)`.
+- `CONSTRAINT fk_person_block_user_tenant FOREIGN KEY(tenant_id, created_by) REFERENCES user_tenant (tenant_id, user_id)`.
+- `PRIMARY KEY (id)`.
+- `CONSTRAINT uq_person_block_tenant_id_id UNIQUE (tenant_id, id)`.
+- `CREATE INDEX ix_person_block_interval ON person_block USING gist (tenant_id, tstzrange(starts_at, ends_at, '[)'))`.
 
 ### `replacement_due`
 

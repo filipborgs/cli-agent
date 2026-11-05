@@ -1,6 +1,6 @@
 # Banco de dados da agenda clínica
 
-Status: 21 tabelas com modelos ORM, Alembic até `0008_replacement_schema` e RLS administrativa: identidade e catálogo, planos e disponibilidades, rotina semanal, sessões e eventos, reposições.
+Status: 23 tabelas com modelos ORM, Alembic até `0009_calendar_schema` e RLS administrativa: identidade e catálogo, planos e disponibilidades, rotina semanal, sessões e eventos, reposições, calendário.
 Demais estruturas e serviços clínicos continuam planejados.
 
 ## Referências canônicas
