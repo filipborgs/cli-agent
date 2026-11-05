@@ -11,6 +11,13 @@ from clinic_api.db.base import Base
 class Appointment(Base):
     __tablename__ = "appointment"
     __table_args__ = (
+        sa.UniqueConstraint(
+            "tenant_id",
+            "id",
+            "treatment_plan_id",
+            "origin",
+            name="uq_appointment_origin_identity",
+        ),
         sa.ForeignKeyConstraint(
             ["tenant_id"], ["tenant.id"], name="fk_appointment_tenant"
         ),
@@ -133,6 +140,20 @@ class Appointment(Base):
             name="ex_appointment_room",
             using="gist",
         ),
+        sa.ForeignKeyConstraint(
+            ["tenant_id", "replacement_due_id", "treatment_plan_id"],
+            [
+                "replacement_due.tenant_id",
+                "replacement_due.id",
+                "replacement_due.treatment_plan_id",
+            ],
+            name="fk_appointment_replacement",
+            use_alter=True,
+        ),
+        sa.CheckConstraint(
+            "(origin = 'routine' AND weekly_slot_id IS NOT NULL AND occurrence_date IS NOT NULL AND replacement_due_id IS NULL) OR (origin = 'replacement' AND weekly_slot_id IS NULL AND occurrence_date IS NULL AND replacement_due_id IS NOT NULL)",
+            name="ck_appointment_origin_fields",
+        ),
         sa.Index(
             "uq_appointment_occurrence",
             "tenant_id",
@@ -140,6 +161,20 @@ class Appointment(Base):
             "occurrence_date",
             unique=True,
             postgresql_where=sa.text("weekly_slot_id IS NOT NULL"),
+        ),
+        sa.Index(
+            "uq_appointment_due_scheduled",
+            "tenant_id",
+            "replacement_due_id",
+            unique=True,
+            postgresql_where=sa.text("origin = 'replacement' AND status = 'scheduled'"),
+        ),
+        sa.Index(
+            "uq_appointment_due_completed",
+            "tenant_id",
+            "replacement_due_id",
+            unique=True,
+            postgresql_where=sa.text("origin = 'replacement' AND status = 'completed'"),
         ),
     )
     id: Mapped[UUID] = mapped_column(sa.Uuid(), primary_key=True)
@@ -175,6 +210,7 @@ class Appointment(Base):
     replacement_decision: Mapped[str] = mapped_column(
         sa.Text(), nullable=False, server_default=sa.text("'not_applicable'")
     )
+    replacement_due_id: Mapped[UUID | None] = mapped_column(sa.Uuid(), nullable=True)
 
 
 class AppointmentEvent(Base):

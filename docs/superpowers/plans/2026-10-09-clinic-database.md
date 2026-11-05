@@ -45,11 +45,11 @@ plano inserem dados diretamente por SQL/ORM, sem depender de serviços clínicos
 
 Branch de execução: `feat/clinic-database-schema`, baseada em `52f1a6d`.
 O usuário autorizou os oito commits incrementais em 2026-11-04. Este snapshot
-inclui identidade e catálogo, planos e disponibilidades, rotina semanal, sessões e eventos: 20 tabelas, head `0007_appointments`.
+inclui identidade e catálogo, planos e disponibilidades, rotina semanal, sessões e eventos, reposições: 21 tabelas, head `0008_replacement_schema`.
 As demais etapas continuam planejadas até seus respectivos incrementos.
 Não há autorização de push ou merge.
 
-Verificação deste incremento: 66 passed in 14.58s ==============================.
+Evidência de verificação: suíte final previamente aprovada: 180 testes API, 9 web; check/build/smoke com saída 0; sem nova execução, conforme solicitado.
 A implementação foi previamente revisada; regressões e auditorias transversais
 são incorporadas nos incrementos correspondentes.
 
@@ -259,15 +259,15 @@ e índices correspondentes.
 `0008_replacement_schema.py` e `apps/api/tests/test_replacement_schema.py`.
 **Regras relacionadas:** suporte de dados para RN-021 a RN-026.
 
-- [ ] Escrever testes para uma dívida por sessão original, origem restrita a
+- [x] Escrever testes para uma dívida por sessão original, origem restrita a
   sessão de rotina, vínculo/tenant coerentes e checks dos estados persistidos.
-- [ ] Testar uma tentativa `scheduled` e uma `completed` por dívida por índices
+- [x] Testar uma tentativa `scheduled` e uma `completed` por dívida por índices
   parciais, incluindo inserções concorrentes e rejeição de dívida filha.
-- [ ] Confirmar falha; criar `replacement_due`, FK de `appointment` para dívida,
+- [x] Confirmar falha; criar `replacement_due`, FK de `appointment` para dívida,
   referência inversa à origem, checks de origem/ocorrência, índices e trigger
   de integridade da sessão original. Definir criação/remoção dessas FKs em
   ordem explícita para resolver o ciclo no upgrade/downgrade e no ORM.
-- [ ] Executar testes específicos, matriz RLS e registro. Não implementar
+- [x] Executar testes específicos, matriz RLS e registro. Não implementar
   concessão, agendamento, quitação ou reabertura automática da dívida.
 
 ### Task 8: Fechamentos e bloqueios individuais

@@ -1,7 +1,7 @@
 # Dicionário físico do banco
 
-Status: 20 tabelas de aplicação e modelos ORM implementados; head
-Alembic `0007_appointments`. Serviços clínicos e geração automática continuam planejados.
+Status: 21 tabelas de aplicação e modelos ORM implementados; head
+Alembic `0008_replacement_schema`. Serviços clínicos e geração automática continuam planejados.
 
 ## Convenções
 
@@ -44,6 +44,13 @@ políticas finais de identidade. A `0003_catalog` criou as seis tabelas iniciais
 do catálogo; `0004_catalog_integrity` completa FKs, campos comuns, associações
 e políticas. Revisões existentes são preservadas.
 
+A coluna gerada `replacement_due.original_origin` é sempre `routine`. Uma FK
+inclui esse discriminador e referencia a identidade da sessão com sua origem;
+a sessão não pode se tornar tentativa enquanto for origem de dívida. Essa
+proteção declarativa também vale em REPEATABLE READ com snapshot anterior à
+criação da dívida. O índice único `uq_appointment_origin_identity` dá suporte
+à FK. O escritor não fornece o valor da coluna gerada.
+
 ### Triggers
 
 - `appointment_resources` → `validate_appointment_resources()`: em nova reserva
@@ -53,6 +60,13 @@ e políticas. Revisões existentes são preservadas.
   inativação concorrente espera a transação da reserva terminar. Não invalida
   histórico ao inativar um cadastro nem revalida recursos numa simples mudança
   entre estados que já reservavam o mesmo intervalo.
+- `replacement_origin` → `validate_replacement_origin()`: a origem de uma dívida
+  deve ser sessão `routine` do mesmo vínculo; a leitura bloqueia a sessão
+  original com FOR SHARE. Contexto runtime sem autorização é negado antes da
+  validação de origem.
+- `preserve_replacement_origin` → função homônima: impede converter uma sessão
+  original referenciada em tentativa de reposição.
+
 Funções de trigger usam PL/pgSQL e search_path explícito. Não sincronizam
 estados de dívida/sessão, não criam eventos automaticamente e não consultam
 fechamentos/disponibilidade. Essas operações de negócio ainda precisam de
@@ -61,7 +75,7 @@ reservas e tentativas concorrentes.
 
 ## Evidências
 
-Testes de banco disponíveis: [`test_catalog_schema.py`](../../apps/api/tests/test_catalog_schema.py), [`test_planning_schema.py`](../../apps/api/tests/test_planning_schema.py), [`test_weekly_slot_schema.py`](../../apps/api/tests/test_weekly_slot_schema.py), [`test_appointment_schema.py`](../../apps/api/tests/test_appointment_schema.py).
+Testes de banco disponíveis: [`test_catalog_schema.py`](../../apps/api/tests/test_catalog_schema.py), [`test_planning_schema.py`](../../apps/api/tests/test_planning_schema.py), [`test_weekly_slot_schema.py`](../../apps/api/tests/test_weekly_slot_schema.py), [`test_appointment_schema.py`](../../apps/api/tests/test_appointment_schema.py), [`test_replacement_schema.py`](../../apps/api/tests/test_replacement_schema.py).
 O registro ORM e o round-trip das migrações são verificados pelos testes
 existentes de banco. Auditoria transversal adicional permanece planejada.
 
@@ -74,7 +88,7 @@ PostgreSQL. `alembic_version` é controle da ferramenta e não recebe acesso run
 ### `appointment`
 
 ORM: [`Appointment`](../../apps/api/src/clinic_api/db/models/scheduling/appointments.py).
-Migração: [`0007_appointments`](../../apps/api/migrations/versions/0007_appointments.py). Regras relacionadas: RN-011, RN-012, RN-014 a RN-016.
+Migração: [`0007_appointments`](../../apps/api/migrations/versions/0007_appointments.py) e `0008_replacement_schema`. Regras relacionadas: RN-011, RN-012, RN-014 a RN-016.
 Teste: [`test_appointment_schema.py`](../../apps/api/tests/test_appointment_schema.py).
 
 | Coluna | Tipo | Nulabilidade | Default SQL |
@@ -98,10 +112,12 @@ Teste: [`test_appointment_schema.py`](../../apps/api/tests/test_appointment_sche
 | `occurrence_date` | `DATE` | NULL | `—` |
 | `manually_adjusted` | `BOOLEAN` | NOT NULL | `false` |
 | `replacement_decision` | `TEXT` | NOT NULL | `'not_applicable'` |
+| `replacement_due_id` | `UUID` | NULL | `—` |
 
 - `CONSTRAINT ck_appointment_duration CHECK (duration_minutes > 0)`.
 - `CONSTRAINT ck_appointment_interval CHECK (starts_at < ends_at)`.
 - `CONSTRAINT ck_appointment_origin CHECK (origin IN ('routine', 'replacement'))`.
+- `CONSTRAINT ck_appointment_origin_fields CHECK ((origin = 'routine' AND weekly_slot_id IS NOT NULL AND occurrence_date IS NOT NULL AND replacement_due_id IS NULL) OR (origin = 'replacement' AND weekly_slot_id IS NULL AND occurrence_date IS NULL AND replacement_due_id IS NOT NULL))`.
 - `CONSTRAINT ck_appointment_replacement_decision CHECK (replacement_decision IN ('not_applicable', 'awaiting_decision', 'granted', 'denied'))`.
 - `CONSTRAINT ck_appointment_status CHECK (status IN ('scheduled', 'completed', 'cancelled', 'patient_absent', 'therapist_absent', 'dispensed'))`.
 - `CONSTRAINT ex_appointment_patient EXCLUDE USING gist (tenant_id WITH =, patient_id WITH =, tstzrange(starts_at, ends_at, '[)') WITH &&) WHERE (status IN ('scheduled', 'completed'))`.
@@ -110,6 +126,7 @@ Teste: [`test_appointment_schema.py`](../../apps/api/tests/test_appointment_sche
 - `CONSTRAINT fk_appointment_clinic FOREIGN KEY(tenant_id, clinic_id) REFERENCES clinic (tenant_id, id)`.
 - `CONSTRAINT fk_appointment_patient FOREIGN KEY(tenant_id, patient_id) REFERENCES patient (tenant_id, id)`.
 - `CONSTRAINT fk_appointment_plan_identity FOREIGN KEY(tenant_id, treatment_plan_id, patient_id, therapist_id, specialty_id) REFERENCES treatment_plan (tenant_id, id, patient_id, therapist_id, specialty_id)`.
+- `CONSTRAINT fk_appointment_replacement FOREIGN KEY(tenant_id, replacement_due_id, treatment_plan_id) REFERENCES replacement_due (tenant_id, id, treatment_plan_id)`.
 - `CONSTRAINT fk_appointment_room FOREIGN KEY(tenant_id, room_id) REFERENCES room (tenant_id, id)`.
 - `CONSTRAINT fk_appointment_room_clinic FOREIGN KEY(tenant_id, clinic_id, room_id) REFERENCES room (tenant_id, clinic_id, id)`.
 - `CONSTRAINT fk_appointment_slot_plan FOREIGN KEY(tenant_id, weekly_slot_id, treatment_plan_id) REFERENCES weekly_slot (tenant_id, id, treatment_plan_id)`.
@@ -120,10 +137,12 @@ Teste: [`test_appointment_schema.py`](../../apps/api/tests/test_appointment_sche
 - `CONSTRAINT fk_appointment_treatment_plan_clinic FOREIGN KEY(tenant_id, treatment_plan_id, clinic_id) REFERENCES treatment_plan_clinic (tenant_id, treatment_plan_id, clinic_id)`.
 - `CONSTRAINT fk_appointment_weekly_slot FOREIGN KEY(tenant_id, weekly_slot_id) REFERENCES weekly_slot (tenant_id, id)`.
 - `PRIMARY KEY (id)`.
+- `CONSTRAINT uq_appointment_origin_identity UNIQUE (tenant_id, id, treatment_plan_id, origin)`.
 - `CONSTRAINT uq_appointment_tenant_id_id UNIQUE (tenant_id, id)`.
 - `CONSTRAINT uq_appointment_tenant_id_id_treatment_plan_id UNIQUE (tenant_id, id, treatment_plan_id)`.
+- `CREATE UNIQUE INDEX uq_appointment_due_completed ON appointment (tenant_id, replacement_due_id) WHERE origin = 'replacement' AND status = 'completed'`.
+- `CREATE UNIQUE INDEX uq_appointment_due_scheduled ON appointment (tenant_id, replacement_due_id) WHERE origin = 'replacement' AND status = 'scheduled'`.
 - `CREATE UNIQUE INDEX uq_appointment_occurrence ON appointment (tenant_id, weekly_slot_id, occurrence_date) WHERE weekly_slot_id IS NOT NULL`.
-
 
 ### `appointment_event`
 
@@ -265,6 +284,40 @@ Teste: [`test_catalog_schema.py`](../../apps/api/tests/test_catalog_schema.py).
 - `CONSTRAINT fk_patient_clinic_clinic FOREIGN KEY(tenant_id, clinic_id) REFERENCES clinic (tenant_id, id)`.
 - `CONSTRAINT fk_patient_clinic_patient FOREIGN KEY(tenant_id, patient_id) REFERENCES patient (tenant_id, id)`.
 - `PRIMARY KEY (tenant_id, patient_id, clinic_id)`.
+
+### `replacement_due`
+
+ORM: [`ReplacementDue`](../../apps/api/src/clinic_api/db/models/scheduling/replacements.py).
+Migração: [`0008_replacement_schema`](../../apps/api/migrations/versions/0008_replacement_schema.py). Regras relacionadas: RN-021 a RN-026.
+Teste: [`test_replacement_schema.py`](../../apps/api/tests/test_replacement_schema.py).
+
+| Coluna | Tipo | Nulabilidade | Default SQL |
+| --- | --- | --- | --- |
+| `id` | `UUID` | NOT NULL | `—` |
+| `tenant_id` | `UUID` | NOT NULL | `—` |
+| `created_at` | `TIMESTAMP WITH TIME ZONE` | NOT NULL | `now()` |
+| `updated_at` | `TIMESTAMP WITH TIME ZONE` | NOT NULL | `now()` |
+| `original_origin` | `TEXT` | NOT NULL | `GENERATED ALWAYS AS ('routine') STORED` |
+| `original_appointment_id` | `UUID` | NOT NULL | `—` |
+| `treatment_plan_id` | `UUID` | NOT NULL | `—` |
+| `reason` | `TEXT` | NOT NULL | `—` |
+| `status` | `TEXT` | NOT NULL | `'pending'` |
+| `decided_by` | `UUID` | NULL | `—` |
+| `decided_at` | `TIMESTAMP WITH TIME ZONE` | NULL | `—` |
+| `closed_reason` | `TEXT` | NULL | `—` |
+
+- `CONSTRAINT ck_replacement_due_closure CHECK (status <> 'closed' OR (closed_reason IS NOT NULL AND length(trim(closed_reason)) > 0 AND decided_by IS NOT NULL))`.
+- `CONSTRAINT ck_replacement_due_decision CHECK ((decided_by IS NULL) = (decided_at IS NULL))`.
+- `CONSTRAINT ck_replacement_due_status CHECK (status IN ('pending', 'scheduled', 'completed', 'closed'))`.
+- `CONSTRAINT fk_replacement_due_appointment FOREIGN KEY(tenant_id, original_appointment_id) REFERENCES appointment (tenant_id, id)`.
+- `CONSTRAINT fk_replacement_due_original_plan FOREIGN KEY(tenant_id, original_appointment_id, treatment_plan_id, original_origin) REFERENCES appointment (tenant_id, id, treatment_plan_id, origin)`.
+- `CONSTRAINT fk_replacement_due_tenant FOREIGN KEY(tenant_id) REFERENCES tenant (id)`.
+- `CONSTRAINT fk_replacement_due_treatment_plan FOREIGN KEY(tenant_id, treatment_plan_id) REFERENCES treatment_plan (tenant_id, id)`.
+- `CONSTRAINT fk_replacement_due_user_tenant FOREIGN KEY(tenant_id, decided_by) REFERENCES user_tenant (tenant_id, user_id)`.
+- `PRIMARY KEY (id)`.
+- `CONSTRAINT uq_replacement_due_tenant_id_id UNIQUE (tenant_id, id)`.
+- `CONSTRAINT uq_replacement_due_tenant_id_id_treatment_plan_id UNIQUE (tenant_id, id, treatment_plan_id)`.
+- `CONSTRAINT uq_replacement_due_tenant_id_original_appointment_id UNIQUE (tenant_id, original_appointment_id)`.
 
 ### `room`
 

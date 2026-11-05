@@ -1,6 +1,6 @@
 # Módulos de persistência e negócio da clínica
 
-Persistência disponível: 20 tabelas com modelos ORM, Alembic até `0007_appointments` e RLS administrativa: identidade e catálogo, planos e disponibilidades, rotina semanal, sessões e eventos.
+Persistência disponível: 21 tabelas com modelos ORM, Alembic até `0008_replacement_schema` e RLS administrativa: identidade e catálogo, planos e disponibilidades, rotina semanal, sessões e eventos, reposições.
 A tabela abaixo descreve a organização prevista e entregue; consulte o
 [dicionário](../database/schema.md) para o inventário implementado.
 Serviços clínicos além dos casos de uso iniciais do catálogo são planejados.
@@ -83,7 +83,9 @@ habilitações em `specialties.py`.
 Modelos adicionais de `planning`, `calendar` e `scheduling` são entregues
 conforme o inventário do dicionário; descrevem somente persistência.
 As migrações são snapshots independentes dos modelos atuais. RLS, funções e
-triggers são criados pelas migrações. A estrutura de reposições e suas referências permanecem planejadas.
+triggers são criados pelas migrações. A FK ORM de `Appointment` para
+`ReplacementDue` usa `use_alter=True`; a referência inversa aponta para a
+sessão original. A migração resolve explicitamente a ordem de criação/remoção.
 
 [Dicionário](../database/schema.md) liga classe → migração → RN → teste e detalha
 os locks FOR SHARE de integridade e as exclusões GiST. Não há sincronização
