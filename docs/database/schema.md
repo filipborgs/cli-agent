@@ -1,7 +1,7 @@
 # Dicionário físico do banco
 
-Status: 17 tabelas de aplicação e modelos ORM implementados; head
-Alembic `0005_treatment_planning`. Serviços clínicos e geração automática continuam planejados.
+Status: 18 tabelas de aplicação e modelos ORM implementados; head
+Alembic `0006_weekly_slots`. Serviços clínicos e geração automática continuam planejados.
 
 ## Convenções
 
@@ -46,7 +46,7 @@ e políticas. Revisões existentes são preservadas.
 
 ## Evidências
 
-Testes de banco disponíveis: [`test_catalog_schema.py`](../../apps/api/tests/test_catalog_schema.py), [`test_planning_schema.py`](../../apps/api/tests/test_planning_schema.py).
+Testes de banco disponíveis: [`test_catalog_schema.py`](../../apps/api/tests/test_catalog_schema.py), [`test_planning_schema.py`](../../apps/api/tests/test_planning_schema.py), [`test_weekly_slot_schema.py`](../../apps/api/tests/test_weekly_slot_schema.py).
 O registro ORM e o round-trip das migrações são verificados pelos testes
 existentes de banco. Auditoria transversal adicional permanece planejada.
 
@@ -429,6 +429,39 @@ Teste: [`test_database.py`](../../apps/api/tests/test_database.py).
 - `FOREIGN KEY(tenant_id) REFERENCES tenant (id)`.
 - `PRIMARY KEY (tenant_id, user_id)`.
 
+### `weekly_slot`
+
+ORM: [`WeeklySlot`](../../apps/api/src/clinic_api/db/models/planning/weekly.py).
+Migração: [`0006_weekly_slots`](../../apps/api/migrations/versions/0006_weekly_slots.py). Regras relacionadas: RN-009, RN-010, RN-014.
+Teste: [`test_weekly_slot_schema.py`](../../apps/api/tests/test_weekly_slot_schema.py).
+
+| Coluna | Tipo | Nulabilidade | Default SQL |
+| --- | --- | --- | --- |
+| `id` | `UUID` | NOT NULL | `—` |
+| `tenant_id` | `UUID` | NOT NULL | `—` |
+| `created_at` | `TIMESTAMP WITH TIME ZONE` | NOT NULL | `now()` |
+| `updated_at` | `TIMESTAMP WITH TIME ZONE` | NOT NULL | `now()` |
+| `treatment_plan_id` | `UUID` | NOT NULL | `—` |
+| `clinic_id` | `UUID` | NOT NULL | `—` |
+| `room_id` | `UUID` | NOT NULL | `—` |
+| `weekday` | `SMALLINT` | NOT NULL | `—` |
+| `start_time` | `TIME WITHOUT TIME ZONE` | NOT NULL | `—` |
+| `duration_minutes` | `INTEGER` | NOT NULL | `—` |
+| `valid_from` | `DATE` | NOT NULL | `—` |
+| `valid_until` | `DATE` | NULL | `—` |
+
+- `CONSTRAINT ck_weekly_slot_duration CHECK (duration_minutes > 0)`.
+- `CONSTRAINT ck_weekly_slot_validity CHECK (valid_until IS NULL OR valid_until >= valid_from)`.
+- `CONSTRAINT ck_weekly_slot_weekday CHECK (weekday BETWEEN 0 AND 6)`.
+- `CONSTRAINT fk_weekly_slot_clinic FOREIGN KEY(tenant_id, clinic_id) REFERENCES clinic (tenant_id, id)`.
+- `CONSTRAINT fk_weekly_slot_room FOREIGN KEY(tenant_id, room_id) REFERENCES room (tenant_id, id)`.
+- `CONSTRAINT fk_weekly_slot_room_clinic FOREIGN KEY(tenant_id, clinic_id, room_id) REFERENCES room (tenant_id, clinic_id, id)`.
+- `CONSTRAINT fk_weekly_slot_tenant FOREIGN KEY(tenant_id) REFERENCES tenant (id)`.
+- `CONSTRAINT fk_weekly_slot_treatment_plan FOREIGN KEY(tenant_id, treatment_plan_id) REFERENCES treatment_plan (tenant_id, id)`.
+- `CONSTRAINT fk_weekly_slot_treatment_plan_clinic FOREIGN KEY(tenant_id, treatment_plan_id, clinic_id) REFERENCES treatment_plan_clinic (tenant_id, treatment_plan_id, clinic_id)`.
+- `PRIMARY KEY (id)`.
+- `CONSTRAINT uq_weekly_slot_tenant_id_id UNIQUE (tenant_id, id)`.
+- `CONSTRAINT uq_weekly_slot_tenant_id_id_treatment_plan_id UNIQUE (tenant_id, id, treatment_plan_id)`.
 
 ## Manutenção
 

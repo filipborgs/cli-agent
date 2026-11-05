@@ -2,7 +2,7 @@
 
 ## Escopo e limites
 
-Persistência disponível: 17 tabelas com modelos ORM, Alembic até `0005_treatment_planning` e RLS administrativa: identidade e catálogo, planos e disponibilidades.
+Persistência disponível: 18 tabelas com modelos ORM, Alembic até `0006_weekly_slots` e RLS administrativa: identidade e catálogo, planos e disponibilidades, rotina semanal.
 Consulte o [dicionário](../database/schema.md) para tabelas e migrações
 entregues. Demais estruturas e serviços clínicos continuam planejados.
 

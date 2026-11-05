@@ -1,6 +1,6 @@
 # Banco de dados da agenda clínica
 
-Status: 17 tabelas com modelos ORM, Alembic até `0005_treatment_planning` e RLS administrativa: identidade e catálogo, planos e disponibilidades.
+Status: 18 tabelas com modelos ORM, Alembic até `0006_weekly_slots` e RLS administrativa: identidade e catálogo, planos e disponibilidades, rotina semanal.
 Demais estruturas e serviços clínicos continuam planejados.
 
 ## Referências canônicas

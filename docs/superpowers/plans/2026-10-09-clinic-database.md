@@ -45,11 +45,11 @@ plano inserem dados diretamente por SQL/ORM, sem depender de serviços clínicos
 
 Branch de execução: `feat/clinic-database-schema`, baseada em `52f1a6d`.
 O usuário autorizou os oito commits incrementais em 2026-11-04. Este snapshot
-inclui identidade e catálogo, planos e disponibilidades: 17 tabelas, head `0005_treatment_planning`.
+inclui identidade e catálogo, planos e disponibilidades, rotina semanal: 18 tabelas, head `0006_weekly_slots`.
 As demais etapas continuam planejadas até seus respectivos incrementos.
 Não há autorização de push ou merge.
 
-Verificação deste incremento: 37 passed in 7.01s ==============================.
+Verificação deste incremento: 38 passed in 7.11s ==============================.
 A implementação foi previamente revisada; regressões e auditorias transversais
 são incorporadas nos incrementos correspondentes.
 
@@ -222,12 +222,12 @@ e índices correspondentes.
 `0006_weekly_slots.py` e `apps/api/tests/test_weekly_slot_schema.py`.
 **Regras relacionadas:** suporte de dados para RN-009, RN-010 e RN-014.
 
-- [ ] Escrever testes para persistir `WeeklySlot`, recuperar sua vigência,
+- [x] Escrever testes para persistir `WeeklySlot`, recuperar sua vigência,
   rejeitar dia/duração/vigência inválidos e sala de outra clínica ou tenant.
-- [ ] Confirmar falha antes de criar `weekly_slot` e seu modelo ORM.
-- [ ] Criar FKs compostas para plano, clínica e sala, checks, índices e RLS.
+- [x] Confirmar falha antes de criar `weekly_slot` e seu modelo ORM.
+- [x] Criar FKs compostas para plano, clínica e sala, checks, índices e RLS.
   Frequência global e escolha de horários não são implementadas nesta task.
-- [ ] Executar testes específicos, matriz RLS e registro; documentar a chave
+- [x] Executar testes específicos, matriz RLS e registro; documentar a chave
   do slot que será referenciada pela ocorrência da sessão.
 
 ### Task 6: Sessões, eventos e reservas concorrentes

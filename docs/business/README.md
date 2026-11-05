@@ -1,6 +1,6 @@
 # Negócio: agenda de atendimentos da clínica
 
-Status: desenho aprovado. Persistência disponível: 17 tabelas com modelos ORM, Alembic até `0005_treatment_planning` e RLS administrativa: identidade e catálogo, planos e disponibilidades.
+Status: desenho aprovado. Persistência disponível: 18 tabelas com modelos ORM, Alembic até `0006_weekly_slots` e RLS administrativa: identidade e catálogo, planos e disponibilidades, rotina semanal.
 Fluxos clínicos e demais estruturas do desenho continuam planejados.
 
 ## Objetivo

@@ -10,3 +10,4 @@ def register_models() -> None:
     import_module("clinic_api.db.models.catalog.specialties")
     import_module("clinic_api.db.models.planning.treatment")
     import_module("clinic_api.db.models.planning.availability")
+    import_module("clinic_api.db.models.planning.weekly")

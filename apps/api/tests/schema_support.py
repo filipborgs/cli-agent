@@ -96,3 +96,20 @@ def planning(connection: Connection, tenant_id: UUID) -> dict[str, UUID]:
         {**ids, "plan": plan},
     )
     return {**ids, "treatment_plan_id": plan}
+
+
+def weekly(connection: Connection, tenant_id: UUID) -> dict[str, UUID]:
+    ids = planning(connection, tenant_id)
+    slot = insert(
+        connection,
+        "weekly_slot",
+        tenant_id=tenant_id,
+        treatment_plan_id=ids["treatment_plan_id"],
+        clinic_id=ids["clinic_id"],
+        room_id=ids["room_id"],
+        weekday=0,
+        start_time="09:00",
+        duration_minutes=30,
+        valid_from="2026-10-01",
+    )
+    return {**ids, "weekly_slot_id": slot}

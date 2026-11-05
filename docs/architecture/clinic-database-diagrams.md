@@ -1,6 +1,6 @@
 # Diagramas do banco de dados da clínica
 
-Status: 17 tabelas com modelos ORM, Alembic até `0005_treatment_planning` e RLS administrativa: identidade e catálogo, planos e disponibilidades.
+Status: 18 tabelas com modelos ORM, Alembic até `0006_weekly_slots` e RLS administrativa: identidade e catálogo, planos e disponibilidades, rotina semanal.
 Os diagramas incluem estruturas ainda planejadas; o
 [dicionário](../database/schema.md) distingue o schema entregue.
 
