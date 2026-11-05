@@ -1,6 +1,8 @@
 # Diagramas do banco de dados da clínica
 
-Status: diagramas aprovados em 2026-10-09, ainda sem implementação.
+Status: 12 tabelas com modelos ORM, Alembic até `0004_catalog_integrity` e RLS administrativa: identidade e catálogo.
+Os diagramas incluem estruturas ainda planejadas; o
+[dicionário](../database/schema.md) distingue o schema entregue.
 
 Representação visual do [desenho aprovado do banco](../superpowers/specs/2026-10-09-clinic-database-design.md).
 Referência funcional: [documentação de negócio](../business/README.md).
@@ -174,7 +176,7 @@ erDiagram
 
 Cada `BLOQUEIO_PESSOA` pertence **a um paciente ou a um terapeuta, nunca aos dois**.
 As duas relações opcionais precisam dessa restrição adicional de exclusividade;
-o mecanismo físico será definido na implementação. O bloqueio vale em todas as
+o mecanismo físico é definido na implementação. O bloqueio vale em todas as
 clínicas do tenant.
 
 O fechamento da clínica impede a geração de sessões. Não cria reposição de

@@ -1,16 +1,15 @@
 # Banco de dados da agenda clínica
 
-Status: modelo conceitual aprovado; fundação PostgreSQL 18, Alembic,
-`0001_identity` e testes descartáveis implementados. Demais tabelas,
-modelos ORM e autorização por tenant continuam planejados.
+Status: 12 tabelas com modelos ORM, Alembic até `0004_catalog_integrity` e RLS administrativa: identidade e catálogo.
+Demais estruturas e serviços clínicos continuam planejados.
 
 ## Referências canônicas
 
 - [Negócio](../business/README.md) e [regras RN-001 a RN-026](../business/business-rules.md): finalidade e comportamento esperado.
 - [Desenho aprovado](../superpowers/specs/2026-10-09-clinic-database-design.md): entidades, relações, integridade e decisões aprovadas.
 - [Diagramas](../architecture/clinic-database-diagrams.md): cardinalidades e ciclo da reposição.
-- [Dicionário físico planejado](schema.md): nomes de tabelas, campos, estados e constraints.
-- [Operação](operations.md): situação atual e procedimentos a documentar na implementação.
+- [Dicionário físico](schema.md): nomes de tabelas, campos, estados e constraints.
+- [Operação](operations.md): provisionamento, papéis, migrações e testes.
 - [Módulos de persistência e domínio](../architecture/clinic-domain-modules.md): proprietários das entidades e serviços.
 - [Contexto para agentes](../agents/database-context.md): navegação por assunto e critérios de revisão.
 

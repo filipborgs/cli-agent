@@ -1,11 +1,11 @@
-from clinic_api.db.models.catalog.entities import (
+from clinic_api.db.models.catalog.affiliations import (
+    PatientClinic as PatientClinicModel,
+)
+from clinic_api.db.models.catalog.facilities import (
     Clinic as ClinicModel,
 )
-from clinic_api.db.models.catalog.entities import (
+from clinic_api.db.models.catalog.people import (
     Patient as PatientModel,
-)
-from clinic_api.db.models.catalog.entities import (
-    PatientClinic as PatientClinicModel,
 )
 from clinic_api.db.session import TenantSession
 from clinic_api.domain.catalog.clinic import Clinic

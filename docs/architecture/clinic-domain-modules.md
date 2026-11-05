@@ -1,15 +1,16 @@
 # Módulos de persistência e negócio da clínica
 
-A infraestrutura disponível consiste em `environment.py`, `settings.py`, `db/base.py`, engine
-síncrono em `db/session.py` e Alembic. Os pacotes de modelos e domínio abaixo
-descrevem a organização dos serviços clínicos implementados e planejados.
+Persistência disponível: 12 tabelas com modelos ORM, Alembic até `0004_catalog_integrity` e RLS administrativa: identidade e catálogo.
+A tabela abaixo descreve a organização prevista e entregue; consulte o
+[dicionário](../database/schema.md) para o inventário implementado.
+Serviços clínicos além dos casos de uso iniciais do catálogo são planejados.
 
 ## Limites por domínio
 
 | Domínio | Modelos em `db/models/` | Serviços/tipos em `domain/` | Responsabilidade |
 | --- | --- | --- | --- |
-| Identidade e organização | `identity/organization.py`, `access.py` | `identity/context.py` | Tenant, clínica, usuário e contexto autorizado. |
-| Cadastros | `catalog/entities.py` | `catalog/clinic.py`, `patient.py`, `patient_clinic.py`, `therapist.py`, `specialty.py`, `room.py`, `types.py`, `ports.py` | Pessoas, unidades, salas e habilitações. |
+| Identidade e organização | `identity/organization.py`, `access.py` | `identity/context.py` | Tenant, usuário e contexto autorizado; clínica pertence ao catálogo. |
+| Cadastros | `catalog/facilities.py`, `people.py`, `affiliations.py`, `specialties.py` | `catalog/clinic.py`, `patient.py`, `patient_clinic.py`, `therapist.py`, `specialty.py`, `room.py`, `types.py`, `ports.py` | Pessoas, unidades, salas e habilitações. |
 | Planejamento | `planning/treatment.py`, `availability.py`, `weekly.py` | `planning/treatments.py`, `availability.py`, `weekly.py`, `time.py`, `types.py` | Frequência/duração, janelas, vigência e rotina semanal. |
 | Calendário | `calendar/closures.py`, `person_blocks.py` | `calendar/closures.py`, `person_blocks.py`, `queries.py` | Fechamentos, indisponibilidades e consulta de impedimentos. |
 | Agenda e reposição | `scheduling/appointments.py`, `replacements.py`, `agendas.py` | `scheduling/appointments.py`, `replacements.py`, `replacement_state.py`, `types.py` | Sessões, histórico, direitos e transições da dívida. |
@@ -52,13 +53,12 @@ verifica métodos e inferência estática. Imports da API/health continuam sem e
 `create_engine(database_url: str) -> Engine` cria conexões síncronas,
 sem sessões/transações de tenant. `Settings` separa URL runtime da administrativa;
 Alembic exige somente a administrativa. `Base: DeclarativeBase` centraliza a
-metadata; `db/models/registry.py` importa explicitamente os modelos de identidade
-e catálogo para manter a metadata coerente com as migrações. Seeds/limpeza administrativos
+metadata; `db/models/registry.py` importa explicitamente os modelos já entregues para manter a metadata coerente com as migrações. Seeds/limpeza administrativos
 ficam em testes; o runtime não contorna RLS. Contratos/evidência:
 [`test_database.py`](../../apps/api/tests/test_database.py),
 [`test_settings.py`](../../apps/api/tests/test_settings.py) e
-[operação](../database/operations.md). RN-001/RN-003 têm defesa fail-closed;
-autorização por tenant e serviços clínicos ainda não estão disponíveis.
+[operação](../database/operations.md). RN-001/RN-003 têm defesa por RLS administrativa, inclusive para usuário/tenant
+inativos; serviços clínicos de agenda ainda não estão disponíveis.
 
 Nomes físicos e estados estão no [dicionário](../database/schema.md); regras
 funcionais estão nos [IDs RN](../business/business-rules.md). Contratos de serviço
@@ -70,3 +70,23 @@ um módulo crescer com responsabilidades independentes, subdividi-lo dentro do
 pacote e atualizar os imports, registro, testes e esta referência na mesma entrega.
 Ao implementar interfaces, registrar aqui suas transações e ligações regra/teste,
 mantendo detalhes consultáveis por assunto para agentes e revisores.
+
+## Contratos dos modelos ORM
+
+`db/models/common.py` define colunas comuns de tenant, timestamps e atividade.
+Cada classe ORM usa a mesma `Base`; `register_models()` registra explicitamente
+os módulos por domínio sem conectar ao banco. Os imports consumidores usam o
+módulo proprietário. `Clinic`/`Room` ficam em `catalog/facilities.py`;
+`Patient`/`Therapist` em `people.py`; participações em `affiliations.py` e
+habilitações em `specialties.py`.
+
+Modelos adicionais de `planning`, `calendar` e `scheduling` são entregues
+conforme o inventário do dicionário; descrevem somente persistência.
+As migrações são snapshots independentes dos modelos atuais. RLS, funções e
+triggers são criados pelas migrações. A estrutura de reposições e suas referências permanecem planejadas.
+
+[Dicionário](../database/schema.md) liga classe → migração → RN → teste e detalha
+os locks FOR SHARE de integridade e as exclusões GiST. Não há sincronização
+automática de dívida, geração de sessões ou auditoria por esses modelos.
+Testes de schema por domínio e `test_model_registry.py` verificam os modelos
+entregues; auditoria transversal adicional permanece planejada.

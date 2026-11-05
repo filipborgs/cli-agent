@@ -1,9 +1,9 @@
 # Operação do banco de dados
 
 A infraestrutura usa PostgreSQL 18, papéis separados, Alembic e testes reais.
-Compose persistente de desenvolvimento, serviço `migrate`, integração de startup,
-autorização por tenant e ORM ainda não estão disponíveis.
-Veja o [schema](schema.md#identidade-entregue--0001_identity).
+O schema disponível contém 12 tabelas com modelos ORM, Alembic até `0004_catalog_integrity` e RLS administrativa: identidade e catálogo. Compose persistente de desenvolvimento,
+serviço `migrate`, integração de startup e autenticação continuam planejados.
+Veja o [schema](schema.md).
 
 ## Configuração e contratos
 
@@ -11,13 +11,13 @@ Veja o [schema](schema.md#identidade-entregue--0001_identity).
 | --- | --- |
 | `DATABASE_URL` | URL SQLAlchemy `postgresql+psycopg://...` runtime; obrigatória ao carregar `Settings()` sem valor explícito. |
 | `MIGRATION_DATABASE_URL` | URL administrativa; opcional para `Settings`, obrigatória para Alembic, sem fallback para runtime. |
-| `clinic_runtime` | LOGIN, NOSUPERUSER, NOBYPASSRLS; sem propriedade/CREATE no esquema; somente SELECT nas identidades. |
+| `clinic_runtime` | LOGIN, NOSUPERUSER, NOBYPASSRLS; sem propriedade/CREATE no esquema; somente SELECT nas identidades e DML nas tabelas de negócio sujeito a RLS. |
 | `clinic_migrator` | LOGIN, NOSUPERUSER, BYPASSRLS; dono de `public` e tabelas; CREATE no banco para instalar a extensão confiável `btree_gist`. |
 
 Os dois papéis não possuem CREATEDB, CREATEROLE ou REPLICATION. `PUBLIC` não tem
 acesso ao esquema `public`; runtime recebe USAGE. Default privileges do migrator
 cobrem tabelas futuras e sequências (USAGE/SELECT), mas `alembic_version` fica
-sem grants runtime. As tabelas de identidade têm RLS forçada. Serviços usam
+sem grants runtime. Todas as tabelas de aplicação têm RLS forçada. O contexto existente usa
 `tenant_session(engine, AccessContext)`, que valida participação administrativa
 ativa e define `app.user_id` e `app.tenant_id` com `set_config(..., true)`
 localmente à transação. Sem contexto não há linhas visíveis; rollback remove o
@@ -128,15 +128,24 @@ Defina apenas a URL administrativa; a URL runtime não é necessária:
 export MIGRATION_DATABASE_URL='postgresql+psycopg://clinic_migrator:local_migrator_password@localhost:5432/clinic'
 uv run --project apps/api alembic -c apps/api/alembic.ini upgrade head
 uv run --project apps/api alembic -c apps/api/alembic.ini current
-# Destrutivo: remove tabelas de identidade/dados e btree_gist.
+# Destrutivo: remove todas as tabelas de aplicação, dados e btree_gist.
 uv run --project apps/api alembic -c apps/api/alembic.ini downgrade base
 uv run --project apps/api alembic -c apps/api/alembic.ini upgrade head
 ```
 
-`head/current` é `0001_identity`; após downgrade só permanece bookkeeping do
-Alembic. O caminho de migrations é relativo ao ini, independente do diretório
-atual. Não usar autogenerate para identidade enquanto não houver registro ORM:
-metadata vazia não representa ainda as tabelas da migração fundadora.
+`head` é `0004_catalog_integrity`; `current` mostra a revisão efetivamente
+aplicada ao banco selecionado. Após downgrade para base só permanece bookkeeping
+do Alembic. O caminho de migrations é relativo ao ini, independente do diretório
+atual. Alembic carrega o registro ORM; revisar qualquer autogenerate manualmente:
+políticas, funções, triggers e algumas expressões de índices/exclusões precisam
+de operações explícitas e não são reconstruídos apenas pela metadata.
+
+### Verificação do schema
+
+Use `make test-api` ou filtre pelos testes `test_*_schema.py` já presentes.
+O runner valida as migrações em banco descartável e remove seus volumes.
+A auditoria transversal de todas as estruturas será acrescentada após as
+migrações restantes. Serviços de negócio e startup persistente são planejados.
 
 `make check`, `make test`, `make build` e `make smoke` validam a entrega
 transversal. Smoke ainda comprova o contrato HTTP/containers existente; não

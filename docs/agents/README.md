@@ -6,10 +6,9 @@ Depois use a tabela para ler somente as referências pertinentes à tarefa.
 
 ## Escopo e fontes
 
-A aplicação usa React/FastAPI, containers e CI. A persistência oferece PostgreSQL,
-Alembic e tabelas de identidade com RLS que nega acesso na ausência de políticas
-permissivas. Os testes usam banco descartável. O contexto autorizado de tenant,
-os modelos ORM e os serviços clínicos ainda não estão disponíveis.
+Persistência disponível: 12 tabelas com modelos ORM, Alembic até `0004_catalog_integrity` e RLS administrativa: identidade e catálogo.
+Demais estruturas do desenho continuam planejadas. Autenticação, serviços
+clínicos e startup persistente da API permanecem planejados.
 
 Código e migrations descrevem o comportamento disponível; regras de negócio e
 desenho conceitual definem os contratos do produto. O dicionário e o mapa de

@@ -2,14 +2,9 @@
 
 ## Escopo e limites
 
-A persistência usa PostgreSQL 18 e migração `0001_identity`, com
-RLS forçada sem políticas permissivas, papéis separados e testes reais em Docker.
-O [desenho conceitual](../superpowers/specs/2026-10-09-clinic-database-design.md)
-está aprovado; o [dicionário físico](../database/schema.md) distingue identidade
-existente dos demais elementos propostos. ORM, registro de entidades e contexto
-autorizado por tenant ainda não estão disponíveis. Interfaces e proprietários
-dos módulos estão no [mapa de arquitetura](../architecture/clinic-domain-modules.md).
-Respeitar o escopo de trabalho autorizado pelo usuário.
+Persistência disponível: 12 tabelas com modelos ORM, Alembic até `0004_catalog_integrity` e RLS administrativa: identidade e catálogo.
+Consulte o [dicionário](../database/schema.md) para tabelas e migrações
+entregues. Demais estruturas e serviços clínicos continuam planejados.
 
 ## Fontes por decisão
 
@@ -37,8 +32,9 @@ Respeitar o escopo de trabalho autorizado pelo usuário.
 | Geração parcial e repetição | RN-013, RN-014 | Motivos de déficit e ausência de duplicação. |
 | Metadata e deploy | Integridade técnica | Schema, privilégios, migrations e startup coerentes. |
 
-Esses invariantes orientam a implementação do modelo clínico. A persistência
-existente é verificada por `apps/api/tests/test_database.py`; usar `make test-api`, conforme
+Esses invariantes orientam a implementação do modelo clínico. A persistência é verificada por testes `test_*_schema.py`,
+`test_model_registry.py` e `test_database.py`;
+usar `make test-api`, conforme
 [operação](../database/operations.md). Bootstrap compartilhado:
 `scripts/bootstrap-db.sh`; fixtures `admin_engine`, `runtime_engine` e
 `factory: ClinicFactory` usam banco descartável, com limpeza pelo migrator.

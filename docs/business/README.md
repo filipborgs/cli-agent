@@ -1,6 +1,7 @@
 # Negócio: agenda de atendimentos da clínica
 
-Status: definição inicial aprovada em 2026-10-09. Funcionalidades ainda não implementadas.
+Status: desenho aprovado. Persistência disponível: 12 tabelas com modelos ORM, Alembic até `0004_catalog_integrity` e RLS administrativa: identidade e catálogo.
+Fluxos clínicos e demais estruturas do desenho continuam planejados.
 
 ## Objetivo
 
@@ -22,7 +23,7 @@ reposições que ainda precisam acontecer.
   tradução dessas regras para o modelo de dados e decisões técnicas.
 - [Diagramas do banco](../architecture/clinic-database-diagrams.md): visão geral,
   entidades, relacionamentos e ciclo de reposição.
-- [Referência do banco](../database/README.md): dicionário físico e operação planejados.
+- [Referência do banco](../database/README.md): dicionário físico e operação.
 - [Índice para agentes](../agents/README.md): leitura direcionada e fontes canônicas.
 
 Esta pasta é a referência funcional do projeto. O desenho técnico detalha como

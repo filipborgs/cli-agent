@@ -4,10 +4,10 @@ Fundacao tecnica para uma aplicacao de clinicas. O produto futuro coordenara ate
 
 ## Escopo atual
 
-SPA React, API FastAPI, containers, qualidade automatizada, CI e fundação
-PostgreSQL 18/Alembic com identidade fail-closed e testes reais descartáveis.
-Autenticação, autorização por tenant, ORM e regras clínicas ainda são planejados.
-O escopo de negócio e o desenho inicial do banco estão documentados e aprovados.
+SPA React, API FastAPI, containers e persistência PostgreSQL.
+Disponível: 12 tabelas com modelos ORM, Alembic até `0004_catalog_integrity` e RLS administrativa: identidade e catálogo.
+Demais estruturas e serviços clínicos, autenticação e startup persistente
+continuam planejados.
 
 ## Documentacao
 
@@ -16,7 +16,7 @@ O escopo de negócio e o desenho inicial do banco estão documentados e aprovado
 - [Regras de negocio](docs/business/business-rules.md).
 - [Fluxos operacionais e exemplos](docs/business/workflows.md).
 - [Desenho aprovado do banco de dados](docs/superpowers/specs/2026-10-09-clinic-database-design.md).
-- [Referencia do banco e dicionario planejado](docs/database/README.md).
+- [Referencia do banco e dicionario físico](docs/database/README.md).
 - [Mapa dos modulos de persistencia e negocio](docs/architecture/clinic-domain-modules.md).
 
 ## Pre-requisitos
